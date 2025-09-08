@@ -13,12 +13,23 @@ function ListTable({ items, onItemEdit, onItemDelete }) {
 
   const headers = ["name", "category", "quantity"];
 
+  const capitalize = (s) => {
+    if (s === null || s === undefined) return '';
+    return String(s)
+      .split(/([ /])/g) // split by space or '/' but keep the delimiters
+      .map(part => {
+        // only capitalize non-delimiter parts
+        return part === ' ' || part === '/' ? part : part.charAt(0).toUpperCase() + part.slice(1);
+      })
+      .join('');
+  };
+
   return (
     <Table bordered hover>
       <thead>
         <tr>
           {headers.map((key) => (
-            <th key={key}>{key.charAt(0).toUpperCase() + key.slice(1)}</th>
+            <th key={key}>{capitalize(key)}</th>
           ))}
           <th>Actions</th>
         </tr>
@@ -27,7 +38,7 @@ function ListTable({ items, onItemEdit, onItemDelete }) {
         {items.map((item, idx) => (
           <tr key={idx}>
             {headers.map((key) => (
-              <td key={key}>{item[key]}</td>
+              <td key={key}>{capitalize(item[key])}</td>
             ))}
             <td>
               <Button variant="warning" size="sm" onClick={() => onItemEdit(item)}>
