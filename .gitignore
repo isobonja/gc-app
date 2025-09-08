@@ -1,0 +1,13 @@
+# Python
+*.pyc
+__pycache__/
+
+# Flask
+server/venv/
+
+# React / Node
+client/node_modules
+client/build/
+client/.env
+
+
