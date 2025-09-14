@@ -14,6 +14,8 @@ function LoginPage() {
   const handleLogin = async (e) => {
     e.preventDefault();
 
+    setError('');
+
     console.log(`Username: ${username}, Password: ${password}`);
 
     try {

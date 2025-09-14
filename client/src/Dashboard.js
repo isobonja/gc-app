@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useContext } from 'react';
+import React, { useEffect, useState, useContext, useRef } from 'react';
 import axios from 'axios';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min';
@@ -50,18 +50,23 @@ function Dashboard() {
   const [editItem, setEditItem] = useState('');
   const [editCategory, setEditCategory] = useState('');
   const [editQuantity, setEditQuantity] = useState(1);
+  const [editItemId, setEditItemId] = useState(null);
+
+  // Snapshot of original values when Edit Item Modal opens
+  const originalEdit = useRef({ name: '', category: '', quantity: 1 });
 
   // Error message
   const [error, setError] = useState('');
 
-  // Item suggestions for autofill
+  // Item suggestions for Add New Item form
   const [itemSuggestions, setItemSuggestions] = useState([]);
-
-  // Dropdown visibility for suggestions
   const [suggestionsVisible, setSuggestionsVisible] = useState(false);
 
-  // Edit Item Modal visibility
+  // Edit Item Modal state variables
   const [editItemShow, setEditItemShow] = useState(false);
+  const [editItemError, setEditItemError] = useState('');
+  const [editItemSuggestions, setEditItemSuggestions] = useState([]);
+  const [editSuggestionsVisible, setEditSuggestionsVisible] = useState(false);
 
 
   // Fetch categories on component mount
@@ -73,9 +78,6 @@ function Dashboard() {
 
   // Fetch items in user's current grocery list and categories on component mount
   useEffect(() => {
-    // TEMPORARILY MANUALLY SETTING LIST_ID HERE
-    //const tmp_list_id = 1;
-    //setCurrentListId(tmp_list_id);
     if (!currentListId) return;
 
     axios.get('http://localhost:5000/dashboard/home', {
@@ -83,13 +85,12 @@ function Dashboard() {
     })
       .then(response => {
         setItemsInList(response.data.items || []);
-        //setCategories(response.data.categories || []); //does the list of categories need to be fetched each time?
         setItemId(null);
       })
       .catch(error => console.error(error));
   }, [reload, currentListId]); // Run when component mounts or reload changes
 
-  // For autofill suggestions when adding new item or editing item
+  // For autofill suggestions when adding new item
   useEffect(() => {
     if (itemName.trim().length < 2) {
       setItemSuggestions([]);
@@ -131,6 +132,48 @@ function Dashboard() {
     setSuggestionsVisible(false);
   }
 
+  // For autofill suggestions when editing item
+  useEffect(() => {
+    if (editItem.trim().length < 2) {
+      setEditItemSuggestions([]);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const fetchEditSuggestions = async () => {
+      try {
+        const res = await axios.get("http://localhost:5000/dashboard/get_item_suggestions", {
+          params: { query: editItem },
+          signal: controller.signal,
+          withCredentials: false,
+        });
+
+        setEditItemSuggestions(res.data.items || []);
+        setEditSuggestionsVisible(true);
+      } catch (err) {
+        if (axios.isCancel(err)) {
+          console.log("Edit request canceled", err.message);
+        }
+      }
+    };
+
+    const timeout = setTimeout(fetchEditSuggestions, 300);
+    return () => {
+      clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [editItem]);
+
+  const handleEditSuggestionClick = (suggestion) => {
+    setEditItem(suggestion.name);
+    setEditCategory(
+      categories.find((cat) => cat.category_id === suggestion.category_id)?.name || ""
+    );
+    setEditItemId(suggestion.item_id);
+    setEditSuggestionsVisible(false);
+  };
+
   const handleAddItem = async (e) => {
     e.preventDefault();
 
@@ -169,17 +212,87 @@ function Dashboard() {
     }
   }
 
-  const handleEditItem = async (item) => {
-    // Modal to edit item; then send updated data to server
-    console.log(`Edit item: ${item.name}`);
+  const handleShowEditItem = async (item) => {
+    // Modal to edit item
+    console.log(`Edit item: ${item.name}, ${item.category}, ${item.quantity}, ${item.item_id}`);
+
     setEditItem(item.name);
     setEditCategory(item.category);
     setEditQuantity(item.quantity);
+    setEditItemId(item.item_id);
+
+    originalEdit.current = {
+      name: item.name ?? '',
+      category: item.category ?? '',
+      quantity: item.quantity ?? 0,
+      item_id: item.item_id ?? null,
+    };
+
     setEditItemShow(true);
   }
 
   const handleEditItemSubmit = async (e) => {
     e.preventDefault();
+
+    console.log("Edit item modal Submit button pressed")
+
+    if (!editItem.trim() || !editCategory.trim()) {
+      setEditItemError("Item name and category are required.");
+      return;
+    }
+
+    const hasNoChanges =
+      editItem.trim() === (originalEdit.current.name || '').trim() &&
+      editCategory.trim() === (originalEdit.current.category || '').trim() &&
+      Number(editQuantity) === Number(originalEdit.current.quantity);
+
+    if (hasNoChanges) {
+      // Probably edit this to just close the Modal w/o making a request
+      setEditItemError('No changes to any fields.');
+      console.log('no changes')
+      return;
+    }
+
+    try {
+      const response = await axios.post('http://localhost:5000/dashboard/edit_item', {
+        currentListId,
+        oldItem: {
+          itemName: originalEdit.current.name,
+          category: originalEdit.current.category,
+          quantity: originalEdit.current.quantity,
+          item_id: editItemId,
+        },
+        newItem: {
+          itemName: editItem.trim(),
+          category: editCategory.trim(),
+          quantity: Number(editQuantity),
+          item_id: editItemId,
+        },
+      });
+
+      if (response.data.error) {
+        setEditItemError(response.data.error);
+        return;
+      }
+
+      setEditItemError('');
+      setReload(!reload);
+      handleCloseEditItem();
+
+    } catch (err) {
+      setEditItemError('Failed to update item.');
+    }
+  }
+
+  const handleCloseEditItem = () => {
+    setEditItem('');
+    setEditCategory('');
+    setEditQuantity(1);
+    setEditItemId(null);
+    setEditItemError('');
+    setEditItemShow(false);
+    setEditSuggestionsVisible(false);
+    originalEdit.current = { name: '', category: '', quantity: 1 };
   }
 
   const handleDeleteItem = async (item) => {
@@ -201,14 +314,7 @@ function Dashboard() {
     }
   }
 
-  const handleCloseEditItem = () => {
-    setEditItemShow(false);
-    setEditItem('')
-    setEditCategory('')
-    setEditQuantity(1)
-  }
 
-  //const handleShowEditItem = () => setEditItemShow(true);
 
   return (
     <div id="main" data-bs-theme="dark">
@@ -237,7 +343,7 @@ function Dashboard() {
             <Col className="border mx-3">
               <ListTable 
                 items={itemsInList}
-                onItemEdit={handleEditItem}
+                onItemEdit={handleShowEditItem}
                 onItemDelete={handleDeleteItem}
               />
             </Col>
@@ -296,16 +402,36 @@ function Dashboard() {
             <Modal.Header closeButton>
               <Modal.Title>Edit Item</Modal.Title>
             </Modal.Header>
+            
             <Modal.Body>
-              {
-                //Will need to have some kind of form similar to the add item form,
-                //but will ideally use Modal.Footer to have the submit button.
-              }
               <Form className="p-3" id="itemEditForm" onSubmit={handleEditItemSubmit}>
-                <Form.Group className="mb-3" controlId="formEditItemName">
-                  <Form.Label>Item Name:</Form.Label>
-                  <Form.Control type="text" placeholder="Enter item name" value={editItem} onChange={e => setEditItem(e.target.value)} />
-                </Form.Group>
+                <div className="position-relative w-100">
+                  <Form.Group className="mb-3" controlId="formEditItemName">
+                    <Form.Label>Item Name:</Form.Label>
+                    <Form.Control type="text" placeholder="Enter item name" value={editItem} onChange={e => setEditItem(e.target.value)} />
+                  </Form.Group>
+
+                  <Dropdown.Menu
+                    show={editSuggestionsVisible && editItemSuggestions.length > 0}
+                    style={{
+                      position: "absolute",
+                      zIndex: 1000,
+                      width: "100%",
+                      top: "100%",
+                      marginTop: 0,
+                    }}
+                  >
+                    {editItemSuggestions.map((suggestion, idx) => (
+                      <Dropdown.Item
+                        key={idx}
+                        onClick={() => handleEditSuggestionClick(suggestion)}
+                      >
+                        {suggestion.name}
+                      </Dropdown.Item>
+                    ))}
+                  </Dropdown.Menu>
+                </div>
+
                 <Form.Group className="mb-3" controlId="formEditItemCategory">
                   <Form.Label>Category:</Form.Label>
                   <Form.Select value={editCategory} onChange={e => setEditCategory(e.target.value)}>
@@ -315,16 +441,18 @@ function Dashboard() {
                     ))}
                   </Form.Select>
                 </Form.Group>
+
                 <Form.Group className="mb-3" controlId="formEditItemQuantity">
                   <Form.Label>Quantity:</Form.Label>
                   <Form.Control type="number" placeholder="Enter quantity" value={editQuantity} onChange={e => setEditQuantity(e.target.value)}/>
                 </Form.Group>
-                {error && 
-                  <Form.Text className="text-danger">{error}</Form.Text>
+
+                {editItemError && 
+                  <Form.Text className="text-danger">{editItemError}</Form.Text>
                 }
-                <Button variant='primary' type='submit' className="w-100 mt-3">Add New Item to Current List</Button>
               </Form>
             </Modal.Body>
+
             <Modal.Footer>
               <Button variant="secondary" onClick={handleCloseEditItem}>
                 Cancel

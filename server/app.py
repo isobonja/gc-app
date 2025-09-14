@@ -174,6 +174,41 @@ def add_item():
         finally:
             conn.close()
 
+@app.route('/dashboard/edit_item', methods=['POST'])
+def edit_item():
+    conn = get_db_conn()
+    data = request.get_json()
+    
+    list_id = data.get('currentListId')
+    old_item_data = data.get('oldItem')
+    new_item_data = data.get('newItem')
+    
+    print(f'list_id: {list_id}\told_item: {old_item_data}\tnew_item: {new_item_data}')
+    
+    differing_value_keys = [k for k in old_item_data if old_item_data[k] != new_item_data[k]]
+    
+    print(f'Differing keys: {differing_value_keys}')
+    
+    if 'quantity' in differing_value_keys:
+        # find row in grocery_list_items table with corresponding item_id and list_id and update the quantity
+        # return
+        pass
+    
+    if 'category' in differing_value_keys or 'itemName' in differing_value_keys:
+        # check if itemName/category pair exist as row in 'items' table
+        # if not, create new item, remove edited item from list, and add the new item in its place
+        # *** IDEA *** Might it be good to make (itemName, category) a primary key in the table?
+        # return
+        pass
+    
+    if 'item_id' in differing_value_keys:
+        return jsonify({'success': False, 'message': "The item ID was changed, this shouldn't be possible..."})
+    
+    
+    return jsonify({'success': True})
+
+
+
 @app.route('/dashboard/delete_item', methods=['POST'])
 def delete_item():
     #global list_id
