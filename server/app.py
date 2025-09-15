@@ -109,13 +109,13 @@ def dashboard():
         
         #categories = conn.execute('SELECT name, category_id FROM categories').fetchall()
         
-        logger.info(f"Fetched items: {items}")
+        #logger.info(f"Fetched items: {items}")
         #logger.info(f"Fetched categories: {categories}")
         
         conn.close()
         
         items_list = [{'name': item[0], 'category': item[1], 'quantity': item[2], 'item_id': item[3]} for item in items]
-        logger.info(f"items_list: {items_list}")
+        #logger.info(f"items_list: {items_list}")
         #categories_list = [{'name': cat[0], 'category_id': cat[1]} for cat in categories]
         #logger.info(f"categories_list: {categories_list}")
         #return jsonify(items=items_list, categories=categories_list)
@@ -183,29 +183,58 @@ def edit_item():
     old_item_data = data.get('oldItem')
     new_item_data = data.get('newItem')
     
-    print(f'list_id: {list_id}\told_item: {old_item_data}\tnew_item: {new_item_data}')
+    logger.info(f'list_id: {list_id}\told_item: {old_item_data}\tnew_item: {new_item_data}')
     
     differing_value_keys = [k for k in old_item_data if old_item_data[k] != new_item_data[k]]
     
-    print(f'Differing keys: {differing_value_keys}')
+    logger.info(f'Differing keys: {differing_value_keys}')
     
-    if 'quantity' in differing_value_keys:
-        # find row in grocery_list_items table with corresponding item_id and list_id and update the quantity
-        # return
-        pass
-    
-    if 'category' in differing_value_keys or 'itemName' in differing_value_keys:
-        # check if itemName/category pair exist as row in 'items' table
-        # if not, create new item, remove edited item from list, and add the new item in its place
-        # *** IDEA *** Might it be good to make (itemName, category) a primary key in the table?
-        # return
-        pass
-    
-    if 'item_id' in differing_value_keys:
-        return jsonify({'success': False, 'message': "The item ID was changed, this shouldn't be possible..."})
-    
-    
-    return jsonify({'success': True})
+    try:
+        if 'quantity' in differing_value_keys:
+            # find row in grocery_list_items table with corresponding item_id and list_id and update the quantity
+            # return
+            conn.execute('''
+                UPDATE grocery_list_items
+                SET quantity = ?
+                WHERE list_id = ? AND item_id = ?
+            ''', (new_item_data['quantity'], list_id, old_item_data['item_id']))
+            
+            conn.commit()
+            
+            return jsonify({'success': True, 'message': 'Quantity updated successfully'})
+        
+        if 'category' in differing_value_keys or 'itemName' in differing_value_keys:
+            # check if itemName/category pair exist as row in 'items' table
+            # if not, create new item, remove edited item from list, and add the new item in its place
+            # *** IDEA *** Might it be good to make (itemName, category) a primary key in the table?
+            # return
+            category_id = conn.execute('SELECT category_id FROM categories WHERE name = ?', (new_item_data['category'],)).fetchone()[0]
+            logger.info(f"category_id: {category_id}")
+            if category_id is None:
+                return jsonify({'success': False, 'error': 'Category does not exist'})
+            exists = conn.execute('SELECT item_id FROM items WHERE name = ? AND category_id = ?', (new_item_data['itemName'], category_id)).fetchone()
+            logger.info(f"exists: {exists}")
+            if exists is None:
+                # create new item
+                conn.execute('INSERT INTO items (name, category_id) VALUES (?, ?)', (new_item_data['itemName'], category_id))
+                new_item_id = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
+            else:
+                new_item_id = exists[0]
+            # remove old item from list
+            conn.execute('DELETE FROM grocery_list_items WHERE list_id = ? AND item_id = ?', (list_id, old_item_data['item_id']))
+            # add new item to list
+            conn.execute('INSERT INTO grocery_list_items (list_id, item_id, quantity) VALUES (?, ?, ?)', (list_id, new_item_id, new_item_data['quantity']))
+            
+            conn.commit()
+            
+            return jsonify({'success': True, 'message': 'Item updated successfully'})
+        
+        if 'item_id' in differing_value_keys:
+            return jsonify({'success': False, 'error': "The item ID was changed, this shouldn't be possible..."})
+    except Exception as e: #Make more specific
+        return jsonify({'success': False, 'error': 'No changes detected'})
+    finally:
+        conn.close()
 
 
 
@@ -213,51 +242,51 @@ def edit_item():
 def delete_item():
     #global list_id
     
-    if request.method == 'POST':
-        conn = get_db_conn()
-        
-        data = request.get_json()
-        list_id = data.get('currentListId')
-        item_id = data.get('item_id')
-        
-        logger.info(f"Deleting item from list {list_id} with ID: {item_id}")
-        
-        if not item_id:
-            return jsonify({'error': 'Item ID is required'}), 400
-        
-        # Delete item from grocery_list_items table
-        conn.execute('DELETE FROM grocery_list_items WHERE list_id = ? AND item_id = ?', (list_id, item_id))
-        conn.commit()
-        conn.close()
-        
-        logger.info(f"Item with ID {item_id} deleted successfully")
-        return jsonify({'success': True}), 200
+    conn = get_db_conn()
+    
+    data = request.get_json()
+    list_id = data.get('currentListId')
+    item_id = data.get('item_id')
+    
+    logger.info(f"Deleting item from list {list_id} with ID: {item_id}")
+    
+    if not item_id:
+        return jsonify({'error': 'Item ID is required'}), 400
+    
+    # Delete item from grocery_list_items table
+    conn.execute('DELETE FROM grocery_list_items WHERE list_id = ? AND item_id = ?', (list_id, item_id))
+    
+    conn.commit()
+    conn.close()
+    
+    logger.info(f"Item with ID {item_id} deleted successfully")
+    return jsonify({'success': True}), 200
 
 
 @app.route('/dashboard/get_item_suggestions', methods=['GET'])
 def get_item_suggestions():
     # Retrieve (item_id, name) from items table for all items 
     # whose name matches the query string (case insensitive, partial match)
-    if request.method == 'GET':
-        #data = request.get_json() # GET requests don't have a body, so use args instead
-        query = request.args.get('query', '').lower()
-        
-        conn = get_db_conn()
-        #items = conn.execute('SELECT item_id, name FROM items WHERE name LIKE ?', (f'%{query}%',)).fetchall()
-        items = conn.execute(
-            '''
-            SELECT item_id, name, category_id
-            FROM items
-            WHERE name LIKE ?            -- starts with query
-            AND name != ?              -- exclude exact matches
-            ''',
-            (f'{query}%', query)
-        ).fetchall()
-        conn.close()
-        
-        items_list = [{'item_id': item[0], 'name': item[1], 'category_id': item[2]} for item in items]
-        logger.info(f"Item suggestions for query '{query}': {items_list}")
-        return jsonify(items=items_list)
+
+    #data = request.get_json() # GET requests don't have a body, so use args instead
+    query = request.args.get('query', '').lower()
+    
+    conn = get_db_conn()
+    #items = conn.execute('SELECT item_id, name FROM items WHERE name LIKE ?', (f'%{query}%',)).fetchall()
+    items = conn.execute(
+        '''
+        SELECT item_id, name, category_id
+        FROM items
+        WHERE name LIKE ?            -- starts with query
+        AND name != ?              -- exclude exact matches
+        ''',
+        (f'{query}%', query)
+    ).fetchall()
+    conn.close()
+    
+    items_list = [{'item_id': item[0], 'name': item[1], 'category_id': item[2]} for item in items]
+    logger.info(f"Item suggestions for query '{query}': {items_list}")
+    return jsonify(items=items_list)
 
 def get_db_conn():
     return sqlite3.connect('grocery.db')
