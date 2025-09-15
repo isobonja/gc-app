@@ -78,7 +78,7 @@ def get_categories():
     categories = conn.execute('SELECT name, category_id FROM categories').fetchall()
     conn.close()
     categories_list = [{'name': c[0], 'category_id': c[1]} for c in categories]
-    logger.info(f"categories_list: {categories_list}")
+    #logger.info(f"categories_list: {categories_list}")
     return jsonify(categories=categories_list)
 
 @app.route('/dashboard/home', methods=['GET'])
@@ -89,6 +89,8 @@ def dashboard():
     
     #global list_id
     #list_id = 1 # TEMPORARY: will need to get list_id from login/dashboard somehow 
+    
+    #logger.info("Dashboard endpoint reached")
     
     if request.method == 'GET':
         list_id = request.args.get('list_id', type=int)
@@ -129,44 +131,47 @@ def add_item():
         conn = get_db_conn()
         
         data = request.get_json()
-        list_id = data.get('currentListId')
-        item_name = data.get('itemName')
-        category_name = data.get('categoryName')
-        quantity = data.get('quantity', 1)
-        item_id = data.get('itemId')  # Can be None if new item
+        list_id = data.get('listId')
+        item = data.get('item')
         
-        logger.info(f"Adding item: {item_name}, category: {category_name}, quantity: {quantity}, item_id: {item_id}")
+        logger.info(f"Adding item: {item['name']}, category: {item['category']}, quantity: {item['quantity']}, id: {item['id']}")
         
-        if not item_name or not category_name:
+        if not item['name'] or not item['category']:
             return jsonify({'error': 'Item name and category are required'}), 400
         
-        category_id = conn.execute('SELECT category_id FROM categories WHERE name = ?', (category_name,)).fetchone()
+        category_id = conn.execute('SELECT category_id FROM categories WHERE name = ?', (item['category'],)).fetchone()
+        
+        #logger.info(f"category_id: {category_id}")
         
         # Look for item id if exists, otherwise create new item in items table
         #item_id = conn.execute('SELECT item_id FROM items WHERE name = ?', (item_name,)).fetchone()
+        item_id = item['id']
+        #logger.info(f"item_id: {item_id}")
         if item_id is None:
             # Check if an item with the same name already exists
             existing_item = conn.execute(
-                'SELECT item_id FROM items WHERE name = ?',
-                (item_name,)
+                'SELECT item_id FROM items WHERE name = ? AND category_id = ?',
+                (item['name'], category_id[0])
             ).fetchone()
             
             if existing_item:
                 # Use the existing item_id
                 item_id = existing_item[0]
+                #logger.info("Has Exisiting item")
             else:
                 # Insert new item since it doesn't exist
                 conn.execute(
                     'INSERT INTO items (name, category_id) VALUES (?, ?)',
-                    (item_name, category_id[0])
+                    (item['name'], category_id[0])
                 )
                 item_id = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
+                #logger.info("No existing item")
         
         # Insert item into grocery_list_items table
         try:
-            conn.execute('INSERT INTO grocery_list_items (list_id, item_id, quantity) VALUES (?, ?, ?)', (list_id, item_id, quantity))
+            conn.execute('INSERT INTO grocery_list_items (list_id, item_id, quantity) VALUES (?, ?, ?)', (list_id, item_id, item['quantity']))
             conn.commit()
-            logger.info(f"Item {item_name} added successfully")
+            logger.info(f"Item {item['name']} added successfully")
             return jsonify({'success': True}), 201
         except sqlite3.IntegrityError as e:
             logger.error(f"Failed to add item: {e}")
@@ -179,7 +184,7 @@ def edit_item():
     conn = get_db_conn()
     data = request.get_json()
     
-    list_id = data.get('currentListId')
+    list_id = data.get('listId')
     old_item_data = data.get('oldItem')
     new_item_data = data.get('newItem')
     
@@ -193,17 +198,18 @@ def edit_item():
         if 'quantity' in differing_value_keys:
             # find row in grocery_list_items table with corresponding item_id and list_id and update the quantity
             # return
+            logger.info(f"Updating quantity to {new_item_data['quantity']} for item_id {old_item_data['id']} in list_id {list_id}")
             conn.execute('''
                 UPDATE grocery_list_items
                 SET quantity = ?
                 WHERE list_id = ? AND item_id = ?
-            ''', (new_item_data['quantity'], list_id, old_item_data['item_id']))
+            ''', (new_item_data['quantity'], list_id, old_item_data['id']))
             
             conn.commit()
             
             return jsonify({'success': True, 'message': 'Quantity updated successfully'})
         
-        if 'category' in differing_value_keys or 'itemName' in differing_value_keys:
+        if 'category' in differing_value_keys or 'name' in differing_value_keys:
             # check if itemName/category pair exist as row in 'items' table
             # if not, create new item, remove edited item from list, and add the new item in its place
             # *** IDEA *** Might it be good to make (itemName, category) a primary key in the table?
@@ -212,16 +218,16 @@ def edit_item():
             logger.info(f"category_id: {category_id}")
             if category_id is None:
                 return jsonify({'success': False, 'error': 'Category does not exist'})
-            exists = conn.execute('SELECT item_id FROM items WHERE name = ? AND category_id = ?', (new_item_data['itemName'], category_id)).fetchone()
+            exists = conn.execute('SELECT item_id FROM items WHERE name = ? AND category_id = ?', (new_item_data['name'], category_id)).fetchone()
             logger.info(f"exists: {exists}")
             if exists is None:
                 # create new item
-                conn.execute('INSERT INTO items (name, category_id) VALUES (?, ?)', (new_item_data['itemName'], category_id))
+                conn.execute('INSERT INTO items (name, category_id) VALUES (?, ?)', (new_item_data['name'], category_id))
                 new_item_id = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
             else:
                 new_item_id = exists[0]
             # remove old item from list
-            conn.execute('DELETE FROM grocery_list_items WHERE list_id = ? AND item_id = ?', (list_id, old_item_data['item_id']))
+            conn.execute('DELETE FROM grocery_list_items WHERE list_id = ? AND item_id = ?', (list_id, old_item_data['id']))
             # add new item to list
             conn.execute('INSERT INTO grocery_list_items (list_id, item_id, quantity) VALUES (?, ?, ?)', (list_id, new_item_id, new_item_data['quantity']))
             
@@ -229,7 +235,7 @@ def edit_item():
             
             return jsonify({'success': True, 'message': 'Item updated successfully'})
         
-        if 'item_id' in differing_value_keys:
+        if 'id' in differing_value_keys:
             return jsonify({'success': False, 'error': "The item ID was changed, this shouldn't be possible..."})
     except Exception as e: #Make more specific
         return jsonify({'success': False, 'error': 'No changes detected'})

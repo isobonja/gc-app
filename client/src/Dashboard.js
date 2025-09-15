@@ -22,6 +22,8 @@ import { UserContext } from './UserContext';
 
 axios.defaults.withCredentials = true; // Allow cookies to be sent with requests
 
+const emptyItem = { name: "", category: "", quantity: 1, id: null };
+
 function Dashboard() {
   /** State Variables **/
   const { user } = useContext(UserContext);
@@ -40,17 +42,11 @@ function Dashboard() {
   // each item is {name, category, quantity, item_id}
   const [itemsInList, setItemsInList] = useState([]);
 
-  // New item form fields
-  const [itemName, setItemName] = useState(''); // item name
-  const [categoryName, setCategoryName] = useState(''); // item category
-  const [quantity, setQuantity] = useState(1); // item quantity
-  const [itemId, setItemId] = useState(null); // item ID (for existing items)
+  // State for item to be added
+  const [addItem, setAddItem] = useState(emptyItem);
 
-  // Edit item modal fields
-  const [editItem, setEditItem] = useState('');
-  const [editCategory, setEditCategory] = useState('');
-  const [editQuantity, setEditQuantity] = useState(1);
-  const [editItemId, setEditItemId] = useState(null);
+  // State for item to be edited
+  const [editItem, setEditItem] = useState(emptyItem);
 
   // Snapshot of original values when Edit Item Modal opens
   const originalEdit = useRef({ name: '', category: '', quantity: 1 });
@@ -78,6 +74,7 @@ function Dashboard() {
 
   // Fetch items in user's current grocery list and categories on component mount
   useEffect(() => {
+    console.log(`Current list ID: ${currentListId}`);
     if (!currentListId) return;
 
     axios.get('http://localhost:5000/dashboard/home', {
@@ -85,14 +82,14 @@ function Dashboard() {
     })
       .then(response => {
         setItemsInList(response.data.items || []);
-        setItemId(null);
+        //setItemId(null);
       })
       .catch(error => console.error(error));
   }, [reload, currentListId]); // Run when component mounts or reload changes
 
   // For autofill suggestions when adding new item
   useEffect(() => {
-    if (itemName.trim().length < 2) {
+    if (addItem.name.trim().length < 2) {
       setItemSuggestions([]);
       return;
     }
@@ -102,7 +99,7 @@ function Dashboard() {
     const fetchSuggestions = async () => {
       try {
         const res = await axios.get('http://localhost:5000/dashboard/get_item_suggestions', {
-          params: { query: itemName },
+          params: { query: addItem.name },
           signal: controller.signal,
           withCredentials: false
         });
@@ -123,18 +120,21 @@ function Dashboard() {
       clearTimeout(timeout);
       controller.abort(); // cancel previous request
     };
-  }, [itemName]);
+  }, [addItem.name]);
 
   const handleSuggestionClick = (suggestion) => {
-    setItemName(suggestion.name);
-    setCategoryName(categories.find(cat => cat.category_id === suggestion.category_id)?.name || '');
-    setItemId(suggestion.item_id);
+    setAddItem(prev => ({
+      ...prev,
+      name: suggestion.name,
+      category: categories.find(cat => cat.category_id === suggestion.category_id)?.name || '',
+      id: suggestion.item_id
+    }))
     setSuggestionsVisible(false);
   }
 
   // For autofill suggestions when editing item
   useEffect(() => {
-    if (editItem.trim().length < 2) {
+    if (editItem.name.trim().length < 2) {
       setEditItemSuggestions([]);
       return;
     }
@@ -144,7 +144,7 @@ function Dashboard() {
     const fetchEditSuggestions = async () => {
       try {
         const res = await axios.get("http://localhost:5000/dashboard/get_item_suggestions", {
-          params: { query: editItem },
+          params: { query: editItem.name },
           signal: controller.signal,
           withCredentials: false,
         });
@@ -163,50 +163,46 @@ function Dashboard() {
       clearTimeout(timeout);
       controller.abort();
     };
-  }, [editItem]);
+  }, [editItem.name]);
 
   const handleEditSuggestionClick = (suggestion) => {
-    setEditItem(suggestion.name);
-    setEditCategory(
-      categories.find((cat) => cat.category_id === suggestion.category_id)?.name || ""
-    );
-    setEditItemId(suggestion.item_id);
+    setEditItem(prev => ({
+      ...prev,
+      name: suggestion.name,
+      category: categories.find(cat => cat.category_id === suggestion.category_id)?.name || '',
+      id: suggestion.item_id
+    }));
     setEditSuggestionsVisible(false);
   };
 
+  // Handle Add New Item form submission
   const handleAddItem = async (e) => {
     e.preventDefault();
 
-    if (!itemName.trim()) {
+    console.log(`item name: ${addItem.name}\tcategory: ${addItem.category}\tquantity: ${addItem.quantity}`);
+
+    if (!addItem.name.trim()) {
       setError('Item name is required');
       return;
     }
-    if (!categoryName) {
+    if (!addItem.category.trim()) {
       setError('Category is required');
       return;
     }
 
     try{
       const response = await axios.post('http://localhost:5000/dashboard/add_item', {
-        currentListId,
-        itemName,
-        categoryName,
-        quantity,
-        itemId // can be null if new item
+        listId: currentListId,
+        item: addItem
       });
 
       if (response.data.error) {
         setError(response.data.error);
       } else {
         setError('');
+        setAddItem(emptyItem);
+        setReload(!reload);
       }
-
-      setItemName('');
-      setCategoryName('');
-      setQuantity(1);
-      setItemId(null);
-      
-      setReload(!reload);
     } catch (err) {
       setError('Failed to add item');
     }
@@ -216,16 +212,19 @@ function Dashboard() {
     // Modal to edit item
     console.log(`Edit item: ${item.name}, ${item.category}, ${item.quantity}, ${item.item_id}`);
 
-    setEditItem(item.name);
-    setEditCategory(item.category);
-    setEditQuantity(item.quantity);
-    setEditItemId(item.item_id);
+    setEditItem(prev => ({
+      ...prev,
+      name: item.name,
+      category: item.category,
+      quantity: item.quantity,
+      id: item.item_id,
+    }));
 
     originalEdit.current = {
       name: item.name ?? '',
       category: item.category ?? '',
-      quantity: item.quantity ?? 0,
-      item_id: item.item_id ?? null,
+      quantity: item.quantity ?? 1,
+      id: item.item_id ?? null,
     };
 
     setEditItemShow(true);
@@ -236,15 +235,15 @@ function Dashboard() {
 
     console.log("Edit item modal Submit button pressed")
 
-    if (!editItem.trim() || !editCategory.trim()) {
+    if (!editItem.name.trim() || !editItem.category.trim()) {
       setEditItemError("Item name and category are required.");
       return;
     }
 
     const hasNoChanges =
-      editItem.trim() === (originalEdit.current.name || '').trim() &&
-      editCategory.trim() === (originalEdit.current.category || '').trim() &&
-      Number(editQuantity) === Number(originalEdit.current.quantity);
+      editItem.name.trim() === (originalEdit.current.name || '').trim() &&
+      editItem.category.trim() === (originalEdit.current.category || '').trim() &&
+      Number(editItem.quantity) === Number(originalEdit.current.quantity);
 
     if (hasNoChanges) {
       // Probably edit this to just close the Modal w/o making a request
@@ -255,18 +254,18 @@ function Dashboard() {
 
     try {
       const response = await axios.post('http://localhost:5000/dashboard/edit_item', {
-        currentListId,
+        listId: currentListId,
         oldItem: {
-          itemName: originalEdit.current.name,
+          name: originalEdit.current.name,
           category: originalEdit.current.category,
           quantity: originalEdit.current.quantity,
-          item_id: editItemId,
+          id: editItem.id,
         },
         newItem: {
-          itemName: editItem.trim(),
-          category: editCategory.trim(),
-          quantity: Number(editQuantity),
-          item_id: editItemId,
+          name: editItem.name.trim(),
+          category: editItem.category.trim(),
+          quantity: Number(editItem.quantity),
+          id: editItem.id,
         },
       });
 
@@ -275,9 +274,8 @@ function Dashboard() {
         return;
       }
 
-      setEditItemError('');
-      setReload(!reload);
       handleCloseEditItem();
+      setReload(!reload);
 
     } catch (err) {
       setEditItemError('Failed to update item.');
@@ -285,10 +283,7 @@ function Dashboard() {
   }
 
   const handleCloseEditItem = () => {
-    setEditItem('');
-    setEditCategory('');
-    setEditQuantity(1);
-    setEditItemId(null);
+    setEditItem(emptyItem);
     setEditItemError('');
     setEditItemShow(false);
     setEditSuggestionsVisible(false);
@@ -297,7 +292,7 @@ function Dashboard() {
 
   const handleDeleteItem = async (item) => {
     // Delete grocery_list_item entry corresponding to item
-    console.log(`Item nameL ${item.name}\tItem category: ${item.category}\tItem quantity: ${item.quantity}\tItem ID: ${item.item_id}`);
+    console.log(`Item name: ${item.name}\tItem category: ${item.category}\tItem quantity: ${item.quantity}\tItem ID: ${item.item_id}`);
     try {
       const response = await axios.post('http://localhost:5000/dashboard/delete_item', {
         currentListId,
@@ -355,7 +350,12 @@ function Dashboard() {
                   {/* Item name */}
                   <Form.Group className="mb-3" controlId="formItemName">
                     <Form.Label>Item Name:</Form.Label>
-                    <Form.Control type="text" placeholder="Enter item name" value={itemName} onChange={e => setItemName(e.target.value)} />
+                    <Form.Control 
+                      type="text" 
+                      placeholder="Enter item name" 
+                      value={addItem.name} 
+                      onChange={e => setAddItem(prev => ({...prev, name: e.target.value}))} 
+                    />
                   </Form.Group>
 
                   {/* Suggestions Dropdown */}
@@ -374,7 +374,10 @@ function Dashboard() {
                 {/* Category */}
                 <Form.Group className="mb-3" controlId="formItemCategory">
                   <Form.Label>Category:</Form.Label>
-                  <Form.Select value={categoryName} onChange={e => setCategoryName(e.target.value)}>
+                  <Form.Select 
+                    value={addItem.category} 
+                    onChange={e => setAddItem(prev => ({...prev, category: e.target.value}))}
+                  >
                     <option value="">Select category</option>
                     {categories.map((cat, idx) => (
                       <option key={cat.category_id || idx} value={cat.name}>{cat.name}</option>
@@ -385,7 +388,12 @@ function Dashboard() {
                 {/* Quantity */}
                 <Form.Group className="mb-3" controlId="formItemQuantity">
                   <Form.Label>Quantity:</Form.Label>
-                  <Form.Control type="number" placeholder="Enter quantity" value={quantity} onChange={e => setQuantity(e.target.value)}/>
+                  <Form.Control 
+                    type="number" 
+                    placeholder="Enter quantity" 
+                    value={addItem.quantity} 
+                    onChange={e => setAddItem(prev => ({...prev, quantity: e.target.value}))}
+                  />
                 </Form.Group>
 
                 {/* Error Message */}
@@ -408,7 +416,12 @@ function Dashboard() {
                 <div className="position-relative w-100">
                   <Form.Group className="mb-3" controlId="formEditItemName">
                     <Form.Label>Item Name:</Form.Label>
-                    <Form.Control type="text" placeholder="Enter item name" value={editItem} onChange={e => setEditItem(e.target.value)} />
+                    <Form.Control 
+                      type="text" 
+                      placeholder="Enter item name" 
+                      value={editItem.name} 
+                      onChange={e => setEditItem(prev => ({...prev, name: e.target.value}))} 
+                    />
                   </Form.Group>
 
                   <Dropdown.Menu
@@ -434,7 +447,10 @@ function Dashboard() {
 
                 <Form.Group className="mb-3" controlId="formEditItemCategory">
                   <Form.Label>Category:</Form.Label>
-                  <Form.Select value={editCategory} onChange={e => setEditCategory(e.target.value)}>
+                  <Form.Select 
+                    value={editItem.category} 
+                    onChange={e => setEditItem(prev => ({...prev, category: e.target.value}))}
+                  >
                     <option value="">Select category</option>
                     {categories.map((cat, idx) => (
                       <option key={cat.category_id || idx} value={cat.name}>{cat.name}</option>
@@ -444,7 +460,12 @@ function Dashboard() {
 
                 <Form.Group className="mb-3" controlId="formEditItemQuantity">
                   <Form.Label>Quantity:</Form.Label>
-                  <Form.Control type="number" placeholder="Enter quantity" value={editQuantity} onChange={e => setEditQuantity(e.target.value)}/>
+                  <Form.Control 
+                    type="number" 
+                    placeholder="Enter quantity" 
+                    value={editItem.quantity} 
+                    onChange={e => setEditItem(prev => ({...prev, quantity: e.target.value}))}
+                  />
                 </Form.Group>
 
                 {editItemError && 
