@@ -6,7 +6,7 @@ import 'bootstrap/dist/js/bootstrap.bundle.min';
 import { 
   Table,
   Button
-} from 'react-bootstrap'
+} from 'react-bootstrap';
 
 function ListTable({ items, onItemEdit, onItemDelete }) {
   // items is an array of objects, each object has keys: name, category, quantity, item_id

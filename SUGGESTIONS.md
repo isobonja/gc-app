@@ -18,6 +18,8 @@ setEditForm(prev => ({ ...prev, item: e.target.value }));
 
 This keeps things more scalable and less repetitive.
 
+
+
 Form reset helpers
 Create utility functions like resetAddForm() and resetEditForm() to clear values, instead of repeating multiple setX("").
 
@@ -31,6 +33,12 @@ export const addItem = (payload) => axios.post("/dashboard/add_item", payload);
 
 
 Then call those inside your component. This will make it easier if your backend changes (e.g. endpoints, auth).
+
+
+
+
+****** EVERYTHING BELOW IS NOT COMPLETED ******
+
 
 Error handling
 You set error messages in state, but some errors just get console.error. Consider a consistent error handler that shows the user something useful.
@@ -174,3 +182,12 @@ useMemo → for derived lists (<option> elements, filtered items, suggestion tra
 ⚡ TL;DR: Right now you don’t need them for performance, but adopting useReducer for forms + useCallback/useMemo for dropdowns/options will make your code cleaner and future-proof before the app grows.
 
 Want me to refactor your edit form into a useReducer example so you can see how much simpler the state handling looks?
+
+
+
+
+
+
+
+
+Can run 'npx eslint .' to check for missing semicolons

@@ -1,8 +1,10 @@
 import React, { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Container, Nav, Navbar, Form, Button } from 'react-bootstrap'
+import { Container, Nav, Navbar, Form, Button } from 'react-bootstrap';
 import { UserContext } from './UserContext';
+
+import { login as apiLogin } from './api';
 
 function LoginPage() {
   const navigate = useNavigate();
@@ -19,15 +21,12 @@ function LoginPage() {
     console.log(`Username: ${username}, Password: ${password}`);
 
     try {
-      const response = await axios.post('http://localhost:5000/login', {
-        username,
-        password
-      }, { withCredentials: true });
+      const data = await apiLogin(username, password);
 
-      if (response.data.success) {
+      if (data.success) {
         setUser({
-          username: response.data.username,
-          currentListId: response.data.currentListId
+          username: data.username,
+          currentListId: data.currentListId
         });
         navigate('/dashboard');
       }

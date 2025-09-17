@@ -252,7 +252,7 @@ def delete_item():
     
     data = request.get_json()
     list_id = data.get('currentListId')
-    item_id = data.get('item_id')
+    item_id = data.get('itemId')
     
     logger.info(f"Deleting item from list {list_id} with ID: {item_id}")
     

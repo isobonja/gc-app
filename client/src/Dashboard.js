@@ -15,10 +15,19 @@ import {
   Button,
   Modal,
   Dropdown
-} from 'react-bootstrap'
+} from 'react-bootstrap';
 
 import ListTable from './ListTable';
 import { UserContext } from './UserContext';
+
+import {
+  fetchCategories,
+  fetchItems,
+  addItem as apiAddItem,
+  editItem as apiEditItem,
+  deleteItem as apiDeleteItem,
+  getItemSuggestions
+} from './api';
 
 axios.defaults.withCredentials = true; // Allow cookies to be sent with requests
 
@@ -43,19 +52,22 @@ function Dashboard() {
   const [itemsInList, setItemsInList] = useState([]);
 
   // State for item to be added
+  // Object with keys 'name', 'category', 'quantity', and 'id'
   const [addItem, setAddItem] = useState(emptyItem);
 
   // State for item to be edited
+  // Object with keys 'name', 'category', 'quantity', and 'id'
   const [editItem, setEditItem] = useState(emptyItem);
 
   // Snapshot of original values when Edit Item Modal opens
   const originalEdit = useRef({ name: '', category: '', quantity: 1 });
 
   // Error message
+  // *** Need to make more specific
   const [error, setError] = useState('');
 
   // Item suggestions for Add New Item form
-  const [itemSuggestions, setItemSuggestions] = useState([]);
+  const [addItemSuggestions, setAddItemSuggestions] = useState([]);
   const [suggestionsVisible, setSuggestionsVisible] = useState(false);
 
   // Edit Item Modal state variables
@@ -67,8 +79,8 @@ function Dashboard() {
 
   // Fetch categories on component mount
   useEffect(() => {
-    axios.get('http://localhost:5000/categories', { withCredentials: false })
-      .then(response => setCategories(response.data.categories || []))
+    fetchCategories()
+      .then(data => setCategories(data.categories || []))
       .catch(err => console.error(err));
   }, []);
 
@@ -77,20 +89,15 @@ function Dashboard() {
     console.log(`Current list ID: ${currentListId}`);
     if (!currentListId) return;
 
-    axios.get('http://localhost:5000/dashboard/home', {
-      params: {list_id: currentListId }
-    })
-      .then(response => {
-        setItemsInList(response.data.items || []);
-        //setItemId(null);
-      })
-      .catch(error => console.error(error));
+    fetchItems(currentListId)
+      .then(data => setItemsInList(data.items || []))
+      .catch(err => console.error(err));
   }, [reload, currentListId]); // Run when component mounts or reload changes
 
   // For autofill suggestions when adding new item
   useEffect(() => {
     if (addItem.name.trim().length < 2) {
-      setItemSuggestions([]);
+      setAddItemSuggestions([]);
       return;
     }
 
@@ -98,13 +105,8 @@ function Dashboard() {
 
     const fetchSuggestions = async () => {
       try {
-        const res = await axios.get('http://localhost:5000/dashboard/get_item_suggestions', {
-          params: { query: addItem.name },
-          signal: controller.signal,
-          withCredentials: false
-        });
-
-        setItemSuggestions(res.data.items || []);
+        const data = await getItemSuggestions(addItem.name, controller.signal);
+        setAddItemSuggestions(data.items || []);
         setSuggestionsVisible(true);
       } catch (err) {
         if (axios.isCancel(err)) {
@@ -128,9 +130,9 @@ function Dashboard() {
       name: suggestion.name,
       category: categories.find(cat => cat.category_id === suggestion.category_id)?.name || '',
       id: suggestion.item_id
-    }))
+    }));
     setSuggestionsVisible(false);
-  }
+  };
 
   // For autofill suggestions when editing item
   useEffect(() => {
@@ -143,17 +145,12 @@ function Dashboard() {
 
     const fetchEditSuggestions = async () => {
       try {
-        const res = await axios.get("http://localhost:5000/dashboard/get_item_suggestions", {
-          params: { query: editItem.name },
-          signal: controller.signal,
-          withCredentials: false,
-        });
-
-        setEditItemSuggestions(res.data.items || []);
+        const data = await getItemSuggestions(editItem.name, controller.signal);
+        setEditItemSuggestions(data.items || []);
         setEditSuggestionsVisible(true);
       } catch (err) {
         if (axios.isCancel(err)) {
-          console.log("Edit request canceled", err.message);
+          console.error("Edit request canceled", err.message);
         }
       }
     };
@@ -191,13 +188,10 @@ function Dashboard() {
     }
 
     try{
-      const response = await axios.post('http://localhost:5000/dashboard/add_item', {
-        listId: currentListId,
-        item: addItem
-      });
+      const data = await apiAddItem(currentListId, addItem);
 
-      if (response.data.error) {
-        setError(response.data.error);
+      if (data.error) {
+        setError(data.error);
       } else {
         setError('');
         setAddItem(emptyItem);
@@ -206,7 +200,7 @@ function Dashboard() {
     } catch (err) {
       setError('Failed to add item');
     }
-  }
+  };
 
   const handleShowEditItem = async (item) => {
     // Modal to edit item
@@ -228,12 +222,12 @@ function Dashboard() {
     };
 
     setEditItemShow(true);
-  }
+  };
 
   const handleEditItemSubmit = async (e) => {
     e.preventDefault();
 
-    console.log("Edit item modal Submit button pressed")
+    console.log("Edit item modal Submit button pressed");
 
     if (!editItem.name.trim() || !editItem.category.trim()) {
       setEditItemError("Item name and category are required.");
@@ -248,29 +242,25 @@ function Dashboard() {
     if (hasNoChanges) {
       // Probably edit this to just close the Modal w/o making a request
       setEditItemError('No changes to any fields.');
-      console.log('no changes')
+      console.log('no changes');
       return;
     }
 
     try {
-      const response = await axios.post('http://localhost:5000/dashboard/edit_item', {
-        listId: currentListId,
-        oldItem: {
-          name: originalEdit.current.name,
-          category: originalEdit.current.category,
-          quantity: originalEdit.current.quantity,
-          id: editItem.id,
-        },
-        newItem: {
-          name: editItem.name.trim(),
-          category: editItem.category.trim(),
-          quantity: Number(editItem.quantity),
-          id: editItem.id,
-        },
+      const data = await apiEditItem(currentListId, {
+        name: originalEdit.current.name,
+        category: originalEdit.current.category,
+        quantity: originalEdit.current.quantity,
+        id: editItem.id,
+      }, {
+        name: editItem.name.trim(),
+        category: editItem.category.trim(),
+        quantity: Number(editItem.quantity),
+        id: editItem.id,
       });
 
-      if (response.data.error) {
-        setEditItemError(response.data.error);
+      if (data.error) {
+        setEditItemError(data.error);
         return;
       }
 
@@ -280,7 +270,7 @@ function Dashboard() {
     } catch (err) {
       setEditItemError('Failed to update item.');
     }
-  }
+  };
 
   const handleCloseEditItem = () => {
     setEditItem(emptyItem);
@@ -288,26 +278,25 @@ function Dashboard() {
     setEditItemShow(false);
     setEditSuggestionsVisible(false);
     originalEdit.current = { name: '', category: '', quantity: 1 };
-  }
+  };
 
   const handleDeleteItem = async (item) => {
     // Delete grocery_list_item entry corresponding to item
     console.log(`Item name: ${item.name}\tItem category: ${item.category}\tItem quantity: ${item.quantity}\tItem ID: ${item.item_id}`);
     try {
-      const response = await axios.post('http://localhost:5000/dashboard/delete_item', {
-        currentListId,
-        item_id: item.item_id
-      });
+      const data = await apiDeleteItem(currentListId, item.item_id);
 
-      if (response.data.error) {
+      if (data.error) {
         //setError(response.data.error);
+        //need to set up error visual for deleting item
+        //probably a Toast?
       }
 
       setReload(!reload);
     } catch (err) {
       setError('Failed to delete item');
     }
-  }
+  };
 
 
 
@@ -360,10 +349,10 @@ function Dashboard() {
 
                   {/* Suggestions Dropdown */}
                   <Dropdown.Menu
-                    show={suggestionsVisible && itemSuggestions.length > 0}
+                    show={suggestionsVisible && addItemSuggestions.length > 0}
                     style={{ position: 'absolute', zIndex: 1000, width: '100%', top: '100%', marginTop: 0 }}
                   >
-                    {itemSuggestions.map((suggestion, idx) => (
+                    {addItemSuggestions.map((suggestion, idx) => (
                       <Dropdown.Item key={idx} onClick={() => handleSuggestionClick(suggestion)}> {/*Suggestion here is object with keys {item_id, name, category_id}*/}
                         {suggestion.name}
                       </Dropdown.Item>
