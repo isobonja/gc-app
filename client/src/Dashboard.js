@@ -14,7 +14,9 @@ import {
   Form,
   Button,
   Modal,
-  Dropdown
+  Dropdown,
+  Toast,
+  ToastContainer
 } from 'react-bootstrap';
 
 import ListTable from './ListTable';
@@ -64,7 +66,7 @@ function Dashboard() {
 
   // Error message
   // *** Need to make more specific
-  const [error, setError] = useState('');
+  const [addItemError, setAddItemError] = useState('');
 
   // Item suggestions for Add New Item form
   const [addItemSuggestions, setAddItemSuggestions] = useState([]);
@@ -179,11 +181,13 @@ function Dashboard() {
     console.log(`item name: ${addItem.name}\tcategory: ${addItem.category}\tquantity: ${addItem.quantity}`);
 
     if (!addItem.name.trim()) {
-      setError('Item name is required');
+      setAddItemError('Item name is required');
+      addToast('Item name is required', 'error');
       return;
     }
     if (!addItem.category.trim()) {
-      setError('Category is required');
+      setAddItemError('Category is required');
+      addToast('Category is required', 'error');
       return;
     }
 
@@ -191,14 +195,17 @@ function Dashboard() {
       const data = await apiAddItem(currentListId, addItem);
 
       if (data.error) {
-        setError(data.error);
+        setAddItemError(data.error);
+        addToast(data.error, 'error');
       } else {
-        setError('');
+        addToast(`Item ${addItem.name} added successfully!`, 'success');
+        setAddItemError('');
         setAddItem(emptyItem);
         setReload(!reload);
       }
     } catch (err) {
-      setError('Failed to add item');
+      setAddItemError('Failed to add item');
+      addToast('Failed to add item', 'error');
     }
   };
 
@@ -231,6 +238,7 @@ function Dashboard() {
 
     if (!editItem.name.trim() || !editItem.category.trim()) {
       setEditItemError("Item name and category are required.");
+      addToast('Item name and category are required.', 'error');
       return;
     }
 
@@ -242,6 +250,7 @@ function Dashboard() {
     if (hasNoChanges) {
       // Probably edit this to just close the Modal w/o making a request
       setEditItemError('No changes to any fields.');
+      addToast('No changes to any fields.', 'error');
       console.log('no changes');
       return;
     }
@@ -261,6 +270,7 @@ function Dashboard() {
 
       if (data.error) {
         setEditItemError(data.error);
+        addToast(data.error, 'error');
         return;
       }
 
@@ -269,6 +279,7 @@ function Dashboard() {
 
     } catch (err) {
       setEditItemError('Failed to update item.');
+      addToast('Failed to update item.', 'error');
     }
   };
 
@@ -290,13 +301,35 @@ function Dashboard() {
         //setError(response.data.error);
         //need to set up error visual for deleting item
         //probably a Toast?
+        addToast('Error deleting item.', 'error');
       }
 
       setReload(!reload);
     } catch (err) {
-      setError('Failed to delete item');
+      console.error(err);
+      addToast(err, 'error');
     }
   };
+
+  // *** TOASTS ***
+  const [toasts, setToasts] = useState([]);
+  
+  const addToast = (message, variant = 'info', delay = 3000) => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, message, variant, delay, show: true }]);
+  };
+
+  const FADE_DURATION = 300;
+
+  const requestCloseToast = (id) => {
+    setToasts(prev => prev.map(t => t.id === id ? { ...t, show: false } : t));
+    setTimeout(() => removeToast(id), FADE_DURATION);
+  };
+
+  const removeToast = (id) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  };
+
 
 
 
@@ -386,8 +419,8 @@ function Dashboard() {
                 </Form.Group>
 
                 {/* Error Message */}
-                {error && 
-                  <Form.Text className="text-danger">{error}</Form.Text>
+                {addItemError && 
+                  <Form.Text className="text-danger">{addItemError}</Form.Text>
                 }
                 <Button variant='primary' type='submit' className="w-100 mt-3">Add New Item to Current List</Button>
               </Form>
@@ -473,6 +506,37 @@ function Dashboard() {
             </Modal.Footer>
           </Modal>
       </Container>
+
+      {/* Toasts */}
+      <ToastContainer 
+        className="p-3"
+        position='bottom-end' 
+        style={{ zIndex: 10 }}
+      >
+        {toasts.map(toast => {
+          const variant =
+            toast.variant === "success" ? "success" :
+            toast.variant === "error"   ? "danger"  :
+                                      "secondary";
+          const textClass = variant === "secondary" ? "" : "text-white";
+
+          return (
+            <Toast
+              key={toast.id} 
+              show={toast.show} 
+              onClose={() => requestCloseToast(toast.id)}
+              autohide 
+              delay={toast.delay} 
+              bg={variant}
+              className={textClass}
+              style={{ minWidth: "250px", marginBottom: "10px" }}
+              animation
+            >
+              <Toast.Body>{toast.message}</Toast.Body>
+            </Toast>
+          );
+        })}
+      </ToastContainer>
     </div>
   );
 }
