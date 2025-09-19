@@ -185,6 +185,7 @@ function Dashboard() {
       addToast('Item name is required', 'error');
       return;
     }
+    
     if (!addItem.category.trim()) {
       setAddItemError('Category is required');
       addToast('Category is required', 'error');

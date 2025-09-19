@@ -29,6 +29,8 @@ function LoginPage() {
           currentListId: data.currentListId
         });
         navigate('/dashboard');
+      } else if (data.error) {
+        setError(data.error);
       }
     } catch (err) {
       setError('Invalid username or password');
