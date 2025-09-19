@@ -19,8 +19,8 @@ import {
   ToastContainer
 } from 'react-bootstrap';
 
-import ListTable from './ListTable';
-import { UserContext } from './UserContext';
+import ListTable from '../components/ListTable';
+import { UserContext } from '../context/UserContext';
 
 import {
   fetchCategories,
@@ -28,8 +28,9 @@ import {
   addItem as apiAddItem,
   editItem as apiEditItem,
   deleteItem as apiDeleteItem,
-  getItemSuggestions
-} from './api';
+} from '../api/requests';
+
+import { useItemSuggestions } from "../hooks/useItemSuggestions";
 
 axios.defaults.withCredentials = true; // Allow cookies to be sent with requests
 
@@ -68,15 +69,23 @@ function Dashboard() {
   // *** Need to make more specific
   const [addItemError, setAddItemError] = useState('');
 
-  // Item suggestions for Add New Item form
-  const [addItemSuggestions, setAddItemSuggestions] = useState([]);
-  const [suggestionsVisible, setSuggestionsVisible] = useState(false);
+  // Add item suggestions
+  const {
+    suggestions: addItemSuggestions,
+    visible: addItemSuggestionsVisible,
+    handleClick: handleSuggestionClick,
+  } = useItemSuggestions(addItem.name, categories, setAddItem);
 
-  // Edit Item Modal state variables
+  // Edit item suggestions
+  const {
+    suggestions: editItemSuggestions,
+    visible: editItemSuggestionsVisible,
+    handleClick: handleEditSuggestionClick,
+  } = useItemSuggestions(editItem.name, categories, setEditItem);
+
+  // Edit Item modal show & errors
   const [editItemShow, setEditItemShow] = useState(false);
   const [editItemError, setEditItemError] = useState('');
-  const [editItemSuggestions, setEditItemSuggestions] = useState([]);
-  const [editSuggestionsVisible, setEditSuggestionsVisible] = useState(false);
 
 
   // Fetch categories on component mount
@@ -96,84 +105,6 @@ function Dashboard() {
       .catch(err => console.error(err));
   }, [reload, currentListId]); // Run when component mounts or reload changes
 
-  // For autofill suggestions when adding new item
-  useEffect(() => {
-    if (addItem.name.trim().length < 2) {
-      setAddItemSuggestions([]);
-      return;
-    }
-
-    const controller = new AbortController(); //AbortController used to prevent race conditions
-
-    const fetchSuggestions = async () => {
-      try {
-        const data = await getItemSuggestions(addItem.name, controller.signal);
-        setAddItemSuggestions(data.items || []);
-        setSuggestionsVisible(true);
-      } catch (err) {
-        if (axios.isCancel(err)) {
-          console.log('Request canceled', err.message);
-        }
-
-        console.error("Error fetching suggestions:", err);
-      }
-    };
-
-    const timeout = setTimeout(fetchSuggestions, 300); // Debounce by 300ms
-    return () => {
-      clearTimeout(timeout);
-      controller.abort(); // cancel previous request
-    };
-  }, [addItem.name]);
-
-  const handleSuggestionClick = (suggestion) => {
-    setAddItem(prev => ({
-      ...prev,
-      name: suggestion.name,
-      category: categories.find(cat => cat.category_id === suggestion.category_id)?.name || '',
-      id: suggestion.item_id
-    }));
-    setSuggestionsVisible(false);
-  };
-
-  // For autofill suggestions when editing item
-  useEffect(() => {
-    if (editItem.name.trim().length < 2) {
-      setEditItemSuggestions([]);
-      return;
-    }
-
-    const controller = new AbortController();
-
-    const fetchEditSuggestions = async () => {
-      try {
-        const data = await getItemSuggestions(editItem.name, controller.signal);
-        setEditItemSuggestions(data.items || []);
-        setEditSuggestionsVisible(true);
-      } catch (err) {
-        if (axios.isCancel(err)) {
-          console.error("Edit request canceled", err.message);
-        }
-      }
-    };
-
-    const timeout = setTimeout(fetchEditSuggestions, 300);
-    return () => {
-      clearTimeout(timeout);
-      controller.abort();
-    };
-  }, [editItem.name]);
-
-  const handleEditSuggestionClick = (suggestion) => {
-    setEditItem(prev => ({
-      ...prev,
-      name: suggestion.name,
-      category: categories.find(cat => cat.category_id === suggestion.category_id)?.name || '',
-      id: suggestion.item_id
-    }));
-    setEditSuggestionsVisible(false);
-  };
-
   // Handle Add New Item form submission
   const handleAddItem = async (e) => {
     e.preventDefault();
@@ -185,7 +116,7 @@ function Dashboard() {
       addToast('Item name is required', 'error');
       return;
     }
-    
+
     if (!addItem.category.trim()) {
       setAddItemError('Category is required');
       addToast('Category is required', 'error');
@@ -288,7 +219,6 @@ function Dashboard() {
     setEditItem(emptyItem);
     setEditItemError('');
     setEditItemShow(false);
-    setEditSuggestionsVisible(false);
     originalEdit.current = { name: '', category: '', quantity: 1 };
   };
 
@@ -383,7 +313,7 @@ function Dashboard() {
 
                   {/* Suggestions Dropdown */}
                   <Dropdown.Menu
-                    show={suggestionsVisible && addItemSuggestions.length > 0}
+                    show={addItemSuggestionsVisible && addItemSuggestions.length > 0}
                     style={{ position: 'absolute', zIndex: 1000, width: '100%', top: '100%', marginTop: 0 }}
                   >
                     {addItemSuggestions.map((suggestion, idx) => (
@@ -448,7 +378,7 @@ function Dashboard() {
                   </Form.Group>
 
                   <Dropdown.Menu
-                    show={editSuggestionsVisible && editItemSuggestions.length > 0}
+                    show={editItemSuggestionsVisible && editItemSuggestions.length > 0}
                     style={{
                       position: "absolute",
                       zIndex: 1000,

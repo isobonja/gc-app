@@ -2,9 +2,9 @@ import React, { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Container, Nav, Navbar, Form, Button } from 'react-bootstrap';
-import { UserContext } from './UserContext';
+import { UserContext } from '../context/UserContext';
 
-import { login as apiLogin } from './api';
+import { login as apiLogin } from '../api/requests';
 
 function LoginPage() {
   const navigate = useNavigate();

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import LoginPage from './LoginPage';
-import Dashboard from './Dashboard';
-import { UserContext } from './UserContext';
+import LoginPage from './pages/LoginPage';
+import Dashboard from './pages/Dashboard';
+import { UserContext } from './context/UserContext';
 
 function App() {
 
