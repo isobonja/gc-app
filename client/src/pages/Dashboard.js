@@ -63,7 +63,7 @@ function Dashboard() {
   const [editItem, setEditItem] = useState(emptyItem);
 
   // Snapshot of original values when Edit Item Modal opens
-  const originalEdit = useRef({ name: '', category: '', quantity: 1 });
+  const originalEdit = useRef({ name: '', category: '', quantity: 1, id: null });
 
   // Error message
   // *** Need to make more specific
@@ -192,7 +192,7 @@ function Dashboard() {
         name: originalEdit.current.name,
         category: originalEdit.current.category,
         quantity: originalEdit.current.quantity,
-        id: editItem.id,
+        id: originalEdit.current.id,
       }, {
         name: editItem.name.trim(),
         category: editItem.category.trim(),
