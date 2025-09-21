@@ -1,3 +1,4 @@
+from datetime import timedelta
 import sqlite3
 import bcrypt
 import logging
@@ -31,11 +32,11 @@ def login():
 
     if db_pw is None:
         logger.warning("Incorrect username")
-        return jsonify({'success': False, 'error': 'Incorrect username'}), 401
+        return jsonify({'success': False, 'error': 'Incorrect username'})
         
     if not bcrypt.checkpw(password.encode('utf-8'), db_pw):
         logger.warning("Incorrect password")
-        return jsonify({'success': False, 'error': 'Incorrect password'}), 401
+        return jsonify({'success': False, 'error': 'Incorrect password'})
     
     session['username'] = username  # Store username in session
     # *** Use user_id for any database queries instead of username; only use username for display purposes
@@ -70,6 +71,17 @@ def logout():
     session.clear() # Clear all session data
     logger.info("User logged out")
     return jsonify({"success": True, "message": "Logged out successfully"})
+
+@app.route("/me", methods=["GET"])
+def me():
+    if "username" in session and "user_id" in session:
+        return jsonify({
+            "loggedIn": True,
+            "username": session["username"],
+            "currentListId": session.get("current_list_id")
+        }), 200
+    else:
+        return jsonify({"loggedIn": False}), 200
 
 @app.route('/categories', methods=['GET'])
 def get_categories():

@@ -1,5 +1,4 @@
 import React, { useEffect, useState, useContext, useRef } from 'react';
-import axios from 'axios';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min';
 //import { BsGear } from "react-icons/bs";
@@ -28,23 +27,22 @@ import {
   addItem as apiAddItem,
   editItem as apiEditItem,
   deleteItem as apiDeleteItem,
+  getSession
 } from '../api/requests';
 
 import { useItemSuggestions } from "../hooks/useItemSuggestions";
-
-axios.defaults.withCredentials = true; // Allow cookies to be sent with requests
 
 const emptyItem = { name: "", category: "", quantity: 1, id: null };
 
 function Dashboard() {
   /** State Variables **/
-  const { user } = useContext(UserContext);
+  const { user, setUser } = useContext(UserContext);
 
   // Page reload
   const [reload, setReload] = useState(false);
 
   // Currently displayed list ID
-  const [currentListId, setCurrentListId] = useState(user.currentListId || null);
+  //const [currentListId, setCurrentListId] = useState(user.currentListId || null);
 
   // List of categories
   // each category is {name, category_id}
@@ -88,6 +86,22 @@ function Dashboard() {
   const [editItemError, setEditItemError] = useState('');
 
 
+  // restore user from session on refresh
+  useEffect(() => {
+    if (!user || !user.username) {   // only fetch if context is empty
+      getSession()
+        .then(data => {
+          if (data?.username) {
+            setUser({
+              username: data.username,
+              currentListId: data.currentListId,
+            });
+          }
+        })
+        .catch(err => console.error("Failed to fetch session", err));
+    }
+  }, [user, setUser]);
+
   // Fetch categories on component mount
   useEffect(() => {
     fetchCategories()
@@ -97,17 +111,19 @@ function Dashboard() {
 
   // Fetch items in user's current grocery list and categories on component mount
   useEffect(() => {
-    console.log(`Current list ID: ${currentListId}`);
-    if (!currentListId) return;
+    if (!user?.currentListId) return;   // safe guard
 
-    fetchItems(currentListId)
+    console.log(`Current list ID: ${user.currentListId}`);
+    fetchItems(user.currentListId)
       .then(data => setItemsInList(data.items || []))
       .catch(err => console.error(err));
-  }, [reload, currentListId]); // Run when component mounts or reload changes
+  }, [reload, user?.currentListId]); // Run when component mounts or reload changes
 
   // Handle Add New Item form submission
   const handleAddItem = async (e) => {
     e.preventDefault();
+
+    if(!user || !user.currentListId) {return;}
 
     console.log(`item name: ${addItem.name}\tcategory: ${addItem.category}\tquantity: ${addItem.quantity}`);
 
@@ -124,7 +140,7 @@ function Dashboard() {
     }
 
     try{
-      const data = await apiAddItem(currentListId, addItem);
+      const data = await apiAddItem(user.currentListId, addItem);
 
       if (data.error) {
         setAddItemError(data.error);
@@ -166,6 +182,8 @@ function Dashboard() {
   const handleEditItemSubmit = async (e) => {
     e.preventDefault();
 
+    if(!user || !user.currentListId) {return;}
+
     console.log("Edit item modal Submit button pressed");
 
     if (!editItem.name.trim() || !editItem.category.trim()) {
@@ -188,7 +206,7 @@ function Dashboard() {
     }
 
     try {
-      const data = await apiEditItem(currentListId, {
+      const data = await apiEditItem(user.currentListId, {
         name: originalEdit.current.name,
         category: originalEdit.current.category,
         quantity: originalEdit.current.quantity,
@@ -225,8 +243,11 @@ function Dashboard() {
   const handleDeleteItem = async (item) => {
     // Delete grocery_list_item entry corresponding to item
     console.log(`Item name: ${item.name}\tItem category: ${item.category}\tItem quantity: ${item.quantity}\tItem ID: ${item.item_id}`);
+    
+    if(!user || !user.currentListId) {return;}
+
     try {
-      const data = await apiDeleteItem(currentListId, item.item_id);
+      const data = await apiDeleteItem(user.currentListId, item.item_id);
 
       if (data.error) {
         //setError(response.data.error);
@@ -261,14 +282,19 @@ function Dashboard() {
     setToasts(prev => prev.filter(t => t.id !== id));
   };
 
-
-
+  // Loading guard
+  // *** Will need to make prettier ***
+  if (!user) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <div id="main" data-bs-theme="dark">
       {/** Navigation Bar **/}
       <Navbar expand="lg" className="bg-primary ps-3">
-        <Navbar.Brand href="#home">Welcome, {user.username}</Navbar.Brand>
+        <Navbar.Brand href="#home">
+          {user ? `Welcome, ${user.username}` : "Welcome"}
+        </Navbar.Brand>
       </Navbar>
         
         {/**<Container>
@@ -353,7 +379,14 @@ function Dashboard() {
                 {addItemError && 
                   <Form.Text className="text-danger">{addItemError}</Form.Text>
                 }
-                <Button variant='primary' type='submit' className="w-100 mt-3">Add New Item to Current List</Button>
+                <Button 
+                  variant='primary' 
+                  type='submit' 
+                  className="w-100 mt-3"
+                  disabled={!addItem.name.trim() || !addItem.category}
+                >
+                  Add New Item to Current List
+                </Button>
               </Form>
             </Col>
           </Row>

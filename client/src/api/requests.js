@@ -49,3 +49,15 @@ export const getItemSuggestions = async (query, signal) => {
   });
   return res.data;
 };
+
+// Check current session
+export const getSession = async () => {
+  const res = await api.get("/me");
+  return res.data;
+};
+
+// Logout
+export const logout = async () => {
+  const res = await api.post("/logout");
+  return res.data;
+};

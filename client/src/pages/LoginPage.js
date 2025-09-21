@@ -1,6 +1,5 @@
 import React, { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import { Container, Nav, Navbar, Form, Button } from 'react-bootstrap';
 import { UserContext } from '../context/UserContext';
 
@@ -24,16 +23,13 @@ function LoginPage() {
       const data = await apiLogin(username, password);
 
       if (data.success) {
-        setUser({
-          username: data.username,
-          currentListId: data.currentListId
-        });
+        setUser({ username: data.username, currentListId: data.currentListId });
         navigate('/dashboard');
       } else if (data.error) {
         setError(data.error);
       }
     } catch (err) {
-      setError('Invalid username or password');
+      setError("Something went wrong. Please try again.");
     }
   };
 
