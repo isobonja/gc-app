@@ -57,3 +57,29 @@ For the add item/edit item forms, for the item name, autofill suggestions should
 
 
 
+
+
+
+
+CONCURRENTLY:
+To start client and server together, use 'concurrently' Node.js package
+
+I will currently install it in the project root, but in the future, when the app is actually hosted, 
+it might be better to switch to Docker containerization 
+
+To install 'concurrently':
+```bash
+npm install --save-dev concurrently
+```
+
+Then create a ```package.json``` in the project root and add the following:
+```json
+"scripts": {
+  "dev": "concurrently \"cd client && npm start\" \"cd server && flask run\""
+}
+```
+
+Then you just run
+```bash
+npm run dev
+```

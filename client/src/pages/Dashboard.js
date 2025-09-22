@@ -15,7 +15,8 @@ import {
   Modal,
   Dropdown,
   Toast,
-  ToastContainer
+  ToastContainer,
+  Spinner
 } from 'react-bootstrap';
 
 import ListTable from '../components/ListTable';
@@ -282,10 +283,15 @@ function Dashboard() {
     setToasts(prev => prev.filter(t => t.id !== id));
   };
 
-  // Loading guard
-  // *** Will need to make prettier ***
+  const baseSpinner = (container_height) => (
+    <Container className="d-flex justify-content-center align-items-center" style={{ height: container_height || '100%' }}>
+      <Spinner animation="border" role="status"></Spinner>
+    </Container>
+  );
+
+  // Spinner while loading dashboard
   if (!user) {
-    return <div>Loading...</div>;
+    return baseSpinner('100vh');
   }
 
   return (
@@ -311,164 +317,168 @@ function Dashboard() {
 
       {/** Main Content **/}
       <Container fluid className="">
-          <Row className="h-100">
+        <Row className="h-100">
 
-            {/** Current Grocery List Table **/}
-            <Col className="border mx-3">
+          {/** Current Grocery List Table **/}
+          <Col className="border mx-3">
+            {itemsInList.length === 0 ? (
+              baseSpinner()
+            ) : (
               <ListTable 
                 items={itemsInList}
                 onItemEdit={handleShowEditItem}
                 onItemDelete={handleDeleteItem}
               />
-            </Col>
+            )}
+          </Col>
 
-            {/** Add New Item Form **/}
-            <Col className="border mx-3">
-              <Form className="p-3" onSubmit={handleAddItem}>
-                <div className="position-relative w-100">
-                  {/* Item name */}
-                  <Form.Group className="mb-3" controlId="formItemName">
-                    <Form.Label>Item Name:</Form.Label>
-                    <Form.Control 
-                      type="text" 
-                      placeholder="Enter item name" 
-                      value={addItem.name} 
-                      onChange={e => setAddItem(prev => ({...prev, name: e.target.value}))} 
-                    />
-                  </Form.Group>
-
-                  {/* Suggestions Dropdown */}
-                  <Dropdown.Menu
-                    show={addItemSuggestionsVisible && addItemSuggestions.length > 0}
-                    style={{ position: 'absolute', zIndex: 1000, width: '100%', top: '100%', marginTop: 0 }}
-                  >
-                    {addItemSuggestions.map((suggestion, idx) => (
-                      <Dropdown.Item key={idx} onClick={() => handleSuggestionClick(suggestion)}> {/*Suggestion here is object with keys {item_id, name, category_id}*/}
-                        {suggestion.name}
-                      </Dropdown.Item>
-                    ))}
-                  </Dropdown.Menu>
-                </div>
-
-                {/* Category */}
-                <Form.Group className="mb-3" controlId="formItemCategory">
-                  <Form.Label>Category:</Form.Label>
-                  <Form.Select 
-                    value={addItem.category} 
-                    onChange={e => setAddItem(prev => ({...prev, category: e.target.value}))}
-                  >
-                    <option value="">Select category</option>
-                    {categories.map((cat, idx) => (
-                      <option key={cat.category_id || idx} value={cat.name}>{cat.name}</option>
-                    ))}
-                  </Form.Select>
-                </Form.Group>
-
-                {/* Quantity */}
-                <Form.Group className="mb-3" controlId="formItemQuantity">
-                  <Form.Label>Quantity:</Form.Label>
+          {/** Add New Item Form **/}
+          <Col className="border mx-3">
+            <Form className="p-3" onSubmit={handleAddItem}>
+              <div className="position-relative w-100">
+                {/* Item name */}
+                <Form.Group className="mb-3" controlId="formItemName">
+                  <Form.Label>Item Name:</Form.Label>
                   <Form.Control 
-                    type="number" 
-                    placeholder="Enter quantity" 
-                    value={addItem.quantity} 
-                    onChange={e => setAddItem(prev => ({...prev, quantity: e.target.value}))}
+                    type="text" 
+                    placeholder="Enter item name" 
+                    value={addItem.name} 
+                    onChange={e => setAddItem(prev => ({...prev, name: e.target.value}))} 
                   />
                 </Form.Group>
 
-                {/* Error Message */}
-                {addItemError && 
-                  <Form.Text className="text-danger">{addItemError}</Form.Text>
-                }
-                <Button 
-                  variant='primary' 
-                  type='submit' 
-                  className="w-100 mt-3"
-                  disabled={!addItem.name.trim() || !addItem.category}
+                {/* Suggestions Dropdown */}
+                <Dropdown.Menu
+                  show={addItemSuggestionsVisible && addItemSuggestions.length > 0}
+                  style={{ position: 'absolute', zIndex: 1000, width: '100%', top: '100%', marginTop: 0 }}
                 >
-                  Add New Item to Current List
-                </Button>
-              </Form>
-            </Col>
-          </Row>
+                  {addItemSuggestions.map((suggestion, idx) => (
+                    <Dropdown.Item key={idx} onClick={() => handleSuggestionClick(suggestion)}> {/*Suggestion here is object with keys {item_id, name, category_id}*/}
+                      {suggestion.name}
+                    </Dropdown.Item>
+                  ))}
+                </Dropdown.Menu>
+              </div>
 
-          {/** Edit Item Modal **/}
-          <Modal show={editItemShow} onHide={handleCloseEditItem}>
-            <Modal.Header closeButton>
-              <Modal.Title>Edit Item</Modal.Title>
-            </Modal.Header>
-            
-            <Modal.Body>
-              <Form className="p-3" id="itemEditForm" onSubmit={handleEditItemSubmit}>
-                <div className="position-relative w-100">
-                  <Form.Group className="mb-3" controlId="formEditItemName">
-                    <Form.Label>Item Name:</Form.Label>
-                    <Form.Control 
-                      type="text" 
-                      placeholder="Enter item name" 
-                      value={editItem.name} 
-                      onChange={e => setEditItem(prev => ({...prev, name: e.target.value}))} 
-                    />
-                  </Form.Group>
+              {/* Category */}
+              <Form.Group className="mb-3" controlId="formItemCategory">
+                <Form.Label>Category:</Form.Label>
+                <Form.Select 
+                  value={addItem.category} 
+                  onChange={e => setAddItem(prev => ({...prev, category: e.target.value}))}
+                >
+                  <option value="">Select category</option>
+                  {categories.map((cat, idx) => (
+                    <option key={cat.category_id || idx} value={cat.name}>{cat.name}</option>
+                  ))}
+                </Form.Select>
+              </Form.Group>
 
-                  <Dropdown.Menu
-                    show={editItemSuggestionsVisible && editItemSuggestions.length > 0}
-                    style={{
-                      position: "absolute",
-                      zIndex: 1000,
-                      width: "100%",
-                      top: "100%",
-                      marginTop: 0,
-                    }}
-                  >
-                    {editItemSuggestions.map((suggestion, idx) => (
-                      <Dropdown.Item
-                        key={idx}
-                        onClick={() => handleEditSuggestionClick(suggestion)}
-                      >
-                        {suggestion.name}
-                      </Dropdown.Item>
-                    ))}
-                  </Dropdown.Menu>
-                </div>
+              {/* Quantity */}
+              <Form.Group className="mb-3" controlId="formItemQuantity">
+                <Form.Label>Quantity:</Form.Label>
+                <Form.Control 
+                  type="number" 
+                  placeholder="Enter quantity" 
+                  value={addItem.quantity} 
+                  onChange={e => setAddItem(prev => ({...prev, quantity: e.target.value}))}
+                />
+              </Form.Group>
 
-                <Form.Group className="mb-3" controlId="formEditItemCategory">
-                  <Form.Label>Category:</Form.Label>
-                  <Form.Select 
-                    value={editItem.category} 
-                    onChange={e => setEditItem(prev => ({...prev, category: e.target.value}))}
-                  >
-                    <option value="">Select category</option>
-                    {categories.map((cat, idx) => (
-                      <option key={cat.category_id || idx} value={cat.name}>{cat.name}</option>
-                    ))}
-                  </Form.Select>
-                </Form.Group>
+              {/* Error Message */}
+              {addItemError && 
+                <Form.Text className="text-danger">{addItemError}</Form.Text>
+              }
+              <Button 
+                variant='primary' 
+                type='submit' 
+                className="w-100 mt-3"
+                disabled={!addItem.name.trim() || !addItem.category}
+              >
+                Add New Item to Current List
+              </Button>
+            </Form>
+          </Col>
+        </Row>
 
-                <Form.Group className="mb-3" controlId="formEditItemQuantity">
-                  <Form.Label>Quantity:</Form.Label>
+        {/** Edit Item Modal **/}
+        <Modal show={editItemShow} onHide={handleCloseEditItem}>
+          <Modal.Header closeButton>
+            <Modal.Title>Edit Item</Modal.Title>
+          </Modal.Header>
+          
+          <Modal.Body>
+            <Form className="p-3" id="itemEditForm" onSubmit={handleEditItemSubmit}>
+              <div className="position-relative w-100">
+                <Form.Group className="mb-3" controlId="formEditItemName">
+                  <Form.Label>Item Name:</Form.Label>
                   <Form.Control 
-                    type="number" 
-                    placeholder="Enter quantity" 
-                    value={editItem.quantity} 
-                    onChange={e => setEditItem(prev => ({...prev, quantity: e.target.value}))}
+                    type="text" 
+                    placeholder="Enter item name" 
+                    value={editItem.name} 
+                    onChange={e => setEditItem(prev => ({...prev, name: e.target.value}))} 
                   />
                 </Form.Group>
 
-                {editItemError && 
-                  <Form.Text className="text-danger">{editItemError}</Form.Text>
-                }
-              </Form>
-            </Modal.Body>
+                <Dropdown.Menu
+                  show={editItemSuggestionsVisible && editItemSuggestions.length > 0}
+                  style={{
+                    position: "absolute",
+                    zIndex: 1000,
+                    width: "100%",
+                    top: "100%",
+                    marginTop: 0,
+                  }}
+                >
+                  {editItemSuggestions.map((suggestion, idx) => (
+                    <Dropdown.Item
+                      key={idx}
+                      onClick={() => handleEditSuggestionClick(suggestion)}
+                    >
+                      {suggestion.name}
+                    </Dropdown.Item>
+                  ))}
+                </Dropdown.Menu>
+              </div>
 
-            <Modal.Footer>
-              <Button variant="secondary" onClick={handleCloseEditItem}>
-                Cancel
-              </Button>
-              <Button type="submit" form="itemEditForm" variant="primary">
-                Save Changes
-              </Button>
-            </Modal.Footer>
-          </Modal>
+              <Form.Group className="mb-3" controlId="formEditItemCategory">
+                <Form.Label>Category:</Form.Label>
+                <Form.Select 
+                  value={editItem.category} 
+                  onChange={e => setEditItem(prev => ({...prev, category: e.target.value}))}
+                >
+                  <option value="">Select category</option>
+                  {categories.map((cat, idx) => (
+                    <option key={cat.category_id || idx} value={cat.name}>{cat.name}</option>
+                  ))}
+                </Form.Select>
+              </Form.Group>
+
+              <Form.Group className="mb-3" controlId="formEditItemQuantity">
+                <Form.Label>Quantity:</Form.Label>
+                <Form.Control 
+                  type="number" 
+                  placeholder="Enter quantity" 
+                  value={editItem.quantity} 
+                  onChange={e => setEditItem(prev => ({...prev, quantity: e.target.value}))}
+                />
+              </Form.Group>
+
+              {editItemError && 
+                <Form.Text className="text-danger">{editItemError}</Form.Text>
+              }
+            </Form>
+          </Modal.Body>
+
+          <Modal.Footer>
+            <Button variant="secondary" onClick={handleCloseEditItem}>
+              Cancel
+            </Button>
+            <Button type="submit" form="itemEditForm" variant="primary">
+              Save Changes
+            </Button>
+          </Modal.Footer>
+        </Modal>
       </Container>
 
       {/* Toasts */}
