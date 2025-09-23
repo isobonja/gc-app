@@ -11,6 +11,12 @@ export const login = async (username, password) => {
   return res.data;
 };
 
+// User logout
+export const logout = async () => {
+  const res = await api.post("/logout");
+  return res.data;
+};
+
 // Fetch categories
 export const fetchCategories = async () => {
   const res = await api.get("/categories");
@@ -53,11 +59,5 @@ export const getItemSuggestions = async (query, signal) => {
 // Check current session
 export const getSession = async () => {
   const res = await api.get("/me");
-  return res.data;
-};
-
-// Logout
-export const logout = async () => {
-  const res = await api.post("/logout");
   return res.data;
 };

@@ -9,5 +9,8 @@ server/venv/
 client/node_modules
 client/build/
 client/.env
+/node_modules
+package-lock.json
+package.json
 
 

@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useContext, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min';
 //import { BsGear } from "react-icons/bs";
@@ -28,7 +29,8 @@ import {
   addItem as apiAddItem,
   editItem as apiEditItem,
   deleteItem as apiDeleteItem,
-  getSession
+  getSession,
+  logout as apiLogOut,
 } from '../api/requests';
 
 import { useItemSuggestions } from "../hooks/useItemSuggestions";
@@ -36,6 +38,7 @@ import { useItemSuggestions } from "../hooks/useItemSuggestions";
 const emptyItem = { name: "", category: "", quantity: 1, id: null };
 
 function Dashboard() {
+  const navigate = useNavigate();
   /** State Variables **/
   const { user, setUser } = useContext(UserContext);
 
@@ -264,6 +267,20 @@ function Dashboard() {
     }
   };
 
+  const handleLogOut = async () => {
+
+    try {
+      const data = await apiLogOut();
+
+      if(data.success) {
+        setUser(null);
+        navigate('/');
+      }
+    } catch (err) {
+      console.error("Unable to log out, please try again later.");
+    }
+  };
+
   // *** TOASTS ***
   const [toasts, setToasts] = useState([]);
   
@@ -298,9 +315,22 @@ function Dashboard() {
     <div id="main" data-bs-theme="dark">
       {/** Navigation Bar **/}
       <Navbar expand="lg" className="bg-primary ps-3">
-        <Navbar.Brand href="#home">
-          {user ? `Welcome, ${user.username}` : "Welcome"}
-        </Navbar.Brand>
+        <Container fluid>
+          <Navbar.Brand href="#home">
+            {user ? `Welcome, ${user.username}` : "Welcome"}
+          </Navbar.Brand>
+          <Navbar.Toggle aria-controls="dashboard-nav" />
+          <Navbar.Collapse id="dashboard-nav">
+            <Nav className="me-auto">
+              
+            </Nav>
+            <Nav>
+              <Button type="button" variant="outline-light" onClick={() => handleLogOut()}>
+                Log Out
+              </Button>
+            </Nav>
+          </Navbar.Collapse>
+        </Container>
       </Navbar>
         
         {/**<Container>
