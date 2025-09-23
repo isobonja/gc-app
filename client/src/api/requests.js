@@ -11,6 +11,12 @@ export const login = async (username, password) => {
   return res.data;
 };
 
+// User registration
+export const register = async (username, password) => {
+  const res = await api.post("/register", { username, password });
+  return res.data;
+};
+
 // User logout
 export const logout = async () => {
   const res = await api.post("/logout");

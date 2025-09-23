@@ -65,7 +65,38 @@ def login():
     # If no list exists for user, currentListId will be null
     # Frontend should handle this case by prompting user to create a new list
     return jsonify({'success': True, 'username': username, 'currentListId': current_list_id}), 200
-            
+
+@app.route('/register', methods=['POST'])
+def register():
+    logger.info("Register endpoint reached")
+
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+
+    if not username or not password:
+        return jsonify({'success': False, 'error': 'Username and password are required'}), 400
+
+    conn = get_db_conn()
+    
+    # Check if username already exists
+    existing_user = conn.execute('SELECT user_id FROM users WHERE username = ?', (username,)).fetchone()
+    if existing_user:
+        logger.warning(f"Username {username} already exists")
+        conn.close()
+        return jsonify({'success': False, 'error': 'Username already exists'}), 409
+
+    # Hash the password
+    hashed_pw = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+    
+    # Insert new user into the database
+    conn.execute('INSERT INTO users (username, password_hash) VALUES (?, ?)', (username, hashed_pw))
+    conn.commit()
+    conn.close()
+
+    logger.info(f"User {username} registered successfully")
+    return jsonify({'success': True, 'message': 'User registered successfully'}), 201
+
 @app.route('/logout', methods=['POST'])
 def logout():
     session.clear() # Clear all session data
