@@ -3,7 +3,12 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Container, Nav, Navbar, Form, Button } from 'react-bootstrap';
 import { UserContext } from '../context/UserContext';
 
-import { login as apiLogin } from '../api/requests';
+import CenterSpinner from '../components/CenterSpinner';
+
+import { 
+  login as apiLogin,
+  getSession,
+} from '../api/requests';
 
 function LoginPage() {
   const navigate = useNavigate();
@@ -14,8 +19,29 @@ function LoginPage() {
   const { setUser } = useContext(UserContext);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [keepLoggedIn, setKeepLoggedIn] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const data = await getSession();
+        if (data.loggedIn) {
+          setUser({ username: data.username, currentListId: data.currentListId });
+          navigate('/dashboard');
+          return;
+        }
+      } catch (err) {
+        console.error("Error checking session:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkSession();
+  }, [setUser, navigate]);
 
   useEffect(() => {
     if (message) {
@@ -32,7 +58,7 @@ function LoginPage() {
     console.log(`Username: ${username}, Password: ${password}`);
 
     try {
-      const data = await apiLogin(username, password);
+      const data = await apiLogin(username, password, keepLoggedIn);
 
       if (data.success) {
         setUser({ username: data.username, currentListId: data.currentListId });
@@ -44,6 +70,10 @@ function LoginPage() {
       setError("Something went wrong. Please try again.");
     }
   };
+
+  if (loading) {
+    return <CenterSpinner height="100vh" />;
+  }
 
   return (
     <div id="main" data-bs-theme="dark">
@@ -60,6 +90,13 @@ function LoginPage() {
             <Form.Label>Password:</Form.Label>
             <Form.Control type="password" placeholder="Enter password" value={password} onChange={e => setPassword(e.target.value)} />
           </Form.Group> 
+          <Form.Check
+            type="switch"
+            id="keep-logged-in-switch"
+            label="Keep me logged in" 
+            checked={keepLoggedIn} 
+            onChange={e => setKeepLoggedIn(e.target.checked)}
+          />
           {error && 
             <Form.Text className="text-danger">{error}</Form.Text>
           }

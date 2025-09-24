@@ -1,6 +1,8 @@
 import { createContext, useState, useEffect } from "react";
 import axios from 'axios';
 
+import CenterSpinner from "../components/CenterSpinner";
+
 export const UserContext = createContext({
   user: { username: "", currentListId: null },
   setUser: () => {},
@@ -35,7 +37,7 @@ export function UserProvider({ children }) {
   }, []);
 
   if (loading) {
-    return <div>Loading...</div>; // optional spinner
+    return <CenterSpinner />; // optional spinner
   }
 
   return (

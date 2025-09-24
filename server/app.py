@@ -13,7 +13,8 @@ CORS(app, origins=["http://localhost:3000"], supports_credentials=True)
 app.secret_key = 'S9sAxmnN2n@iS9g(u#N$lSQZOb3o%6'
 
 # Uncomment the following line to enable session expiration after a set time
-#app.permanent_session_lifetime = timedelta(days=7)
+app.config['SESSION_PERMANENT'] = False
+app.permanent_session_lifetime = timedelta(days=7)
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -22,6 +23,7 @@ def login():
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')
+    keep_logged_in = data.get('keepLoggedIn', False)
 
     # Query the database for the user
     conn = get_db_conn()
@@ -44,7 +46,10 @@ def login():
     logger.info("Valid Login")
     
     # Uncomment along with the app.permanent_session_lifetime line above to enable session expiration
-    #session.permanent = True
+    if keep_logged_in:
+        session.permanent = True
+    else:
+        session.permanent = False
     
     recent_list = conn.execute('''
         SELECT gl.list_id

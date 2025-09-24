@@ -21,6 +21,7 @@ import {
 } from 'react-bootstrap';
 
 import ListTable from '../components/ListTable';
+import CenterSpinner from '../components/CenterSpinner';
 import { UserContext } from '../context/UserContext';
 
 import {
@@ -300,15 +301,16 @@ function Dashboard() {
     setToasts(prev => prev.filter(t => t.id !== id));
   };
 
+  /*
   const baseSpinner = (container_height) => (
     <Container className="d-flex justify-content-center align-items-center" style={{ height: container_height || '100%' }}>
       <Spinner animation="border" role="status"></Spinner>
     </Container>
-  );
+  );*/
 
   // Spinner while loading dashboard
   if (!user) {
-    return baseSpinner('100vh');
+    return <CenterSpinner />;
   }
 
   return (
@@ -352,7 +354,7 @@ function Dashboard() {
           {/** Current Grocery List Table **/}
           <Col className="border mx-3">
             {itemsInList.length === 0 ? (
-              baseSpinner()
+              <CenterSpinner height="50vh" />
             ) : (
               <ListTable 
                 items={itemsInList}
