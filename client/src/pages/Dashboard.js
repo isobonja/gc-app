@@ -10,6 +10,7 @@ import {
   Col, 
   Nav, 
   Navbar,
+  Card,
   Table,
   Form,
   Button,
@@ -26,7 +27,7 @@ import { UserContext } from '../context/UserContext';
 
 import {
   fetchCategories,
-  fetchItems,
+  fetchListData,
   addItem as apiAddItem,
   editItem as apiEditItem,
   deleteItem as apiDeleteItem,
@@ -56,6 +57,8 @@ function Dashboard() {
   // Items in user's current grocery list
   // each item is {name, category, quantity, item_id}
   const [itemsInList, setItemsInList] = useState([]);
+  const [listName, setListName] = useState('');
+  const [listModifiedDate, setListModifiedDate] = useState(null);
 
   // State for item to be added
   // Object with keys 'name', 'category', 'quantity', and 'id'
@@ -119,8 +122,22 @@ function Dashboard() {
     if (!user?.currentListId) return;   // safe guard
 
     console.log(`Current list ID: ${user.currentListId}`);
-    fetchItems(user.currentListId)
-      .then(data => setItemsInList(data.items || []))
+    fetchListData(user.currentListId)
+      .then(data => {
+        setItemsInList(data.items || []);
+        setListName(data.listName || '');
+        
+        if (data.modified) {
+          const utcDate = new Date(data.modified + " UTC");
+          const localDate = utcDate.toLocaleString(undefined, {
+            dateStyle: "medium",
+            timeStyle: "short",
+          });
+          setListModifiedDate(localDate);
+        } else {
+          setListModifiedDate(null);
+        }
+      })
       .catch(err => console.error(err));
   }, [reload, user?.currentListId]); // Run when component mounts or reload changes
 
@@ -309,12 +326,20 @@ function Dashboard() {
   );*/
 
   // Spinner while loading dashboard
-  if (!user) {
+  if (!user || !listModifiedDate) {
     return <CenterSpinner />;
   }
 
   return (
     <div id="main" data-bs-theme="dark">
+      {/*
+        <div id="main" data-bs-theme="dark" className="bg-dark text-light min-vh-100">
+        THIS IS HOW TO MAKE THE PAGE ACTUALLY DARK MODE
+        WOULD NEED TO MAKE CHANGES TO ALL PAGES, OR FIND A WAY TO ONLY IMPLEMENT A DARK MODE SWITCH ONCE
+
+        ALSO NEED TO SET UP LIGHT/DARK MODE SWITCH OPTION IN GENERAL
+        ALSO LOOK INTO CUSTOM COLORS
+      */}
       {/** Navigation Bar **/}
       <Navbar expand="lg" className="bg-primary ps-3">
         <Container fluid>
@@ -349,6 +374,17 @@ function Dashboard() {
 
       {/** Main Content **/}
       <Container fluid className="">
+
+        {/* List Info */}
+        <Row className="mx-1 my-3 p-3 align-items-center border rounded-3 shadow-sm bg-dark text-light">
+          <Col>
+            <h3 className="mb-0 fw-bold">{listName}</h3>
+          </Col>
+          <Col className="text-end">
+            <small className="text-muted">Last Modified: {listModifiedDate}</small>
+          </Col>
+        </Row>
+
         <Row className="h-100">
 
           {/** Current Grocery List Table **/}

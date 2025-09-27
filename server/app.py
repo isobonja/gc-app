@@ -1,4 +1,5 @@
-from datetime import timedelta
+from datetime import timedelta, datetime, timezone
+import datetime
 import sqlite3
 import bcrypt
 import logging
@@ -146,12 +147,15 @@ def dashboard():
     ''', (list_id,)).fetchall()
 
     #logger.info(f"Fetched items: {items}")
-   
+    list_info = conn.execute('SELECT name, update_date FROM grocery_lists WHERE list_id = ?', (list_id,)).fetchone()
+    list_name = list_info[0] if list_info else ''
+    modified = list_info[1] if list_info else None
+    
     conn.close()
     
     items_list = [{'name': item[0], 'category': item[1], 'quantity': item[2], 'item_id': item[3]} for item in items]
     #logger.info(f"items_list: {items_list}")
-    return jsonify({'success': True, 'items': items_list})
+    return jsonify({'success': True, 'items': items_list, 'listName': list_name, 'modified': modified})
 
 @app.route('/dashboard/add_item', methods=['POST'])
 def add_item():
@@ -196,10 +200,13 @@ def add_item():
     
     # Insert item into grocery_list_items table
     try:
-        conn.execute('INSERT INTO grocery_list_items (list_id, item_id, quantity) VALUES (?, ?, ?)', (list_id, item_id, item.get('quantity', 1)))
-        conn.commit()
-        logger.info(f"Item {item.get('name')} added successfully")
-        return jsonify({'success': True}), 200
+        if update_list_modified_date(conn, list_id):
+            conn.execute('INSERT INTO grocery_list_items (list_id, item_id, quantity) VALUES (?, ?, ?)', (list_id, item_id, item.get('quantity', 1)))
+            conn.commit()
+            logger.info(f"Item {item.get('name')} added successfully")
+            return jsonify({'success': True}), 200
+        else:
+            return jsonify({'success': False, 'error': 'Error modifying database'})
     except sqlite3.IntegrityError as e:
         logger.error(f"Failed to add item: {e}")
         return jsonify({'success': False, 'error': 'Item already exists in the list'}), 400
@@ -222,48 +229,49 @@ def edit_item():
     logger.info(f'Differing keys: {differing_value_keys}')
     
     try:
-        if 'quantity' in differing_value_keys:
-            # find row in grocery_list_items table with corresponding item_id and list_id and update the quantity
-            # return
-            logger.info(f"Updating quantity to {new_item_data.get('quantity')} for item_id {old_item_data.get('id')} in list_id {list_id}")
-            conn.execute('''
-                UPDATE grocery_list_items
-                SET quantity = ?
-                WHERE list_id = ? AND item_id = ?
-            ''', (new_item_data.get('quantity'), list_id, old_item_data.get('id')))
-            
-            conn.commit()
-            
-            return jsonify({'success': True, 'message': 'Quantity updated successfully'})
-        
-        if 'category' in differing_value_keys or 'name' in differing_value_keys:
-            # check if itemName/category pair exist as row in 'items' table
-            # if not, create new item, remove edited item from list, and add the new item in its place
-            # *** IDEA *** Might it be good to make (itemName, category) a primary key in the table?
-            # return
-            category_id = conn.execute('SELECT category_id FROM categories WHERE name = ?', (new_item_data.get('category'),)).fetchone()[0]
-            logger.info(f"category_id: {category_id}")
-            if category_id is None:
-                return jsonify({'success': False, 'error': 'Category does not exist'})
-            exists = conn.execute('SELECT item_id FROM items WHERE name = ? AND category_id = ?', (new_item_data.get('name'), category_id)).fetchone()
-            logger.info(f"exists: {exists}")
-            if exists is None:
-                # create new item
-                conn.execute('INSERT INTO items (name, category_id) VALUES (?, ?)', (new_item_data.get('name'), category_id))
-                new_item_id = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
-            else:
-                new_item_id = exists[0]
-            # remove old item from list
-            conn.execute('DELETE FROM grocery_list_items WHERE list_id = ? AND item_id = ?', (list_id, old_item_data.get('id'),))
-            # add new item to list
-            conn.execute('INSERT INTO grocery_list_items (list_id, item_id, quantity) VALUES (?, ?, ?)', (list_id, new_item_id, new_item_data.get('quantity', 1)))
-            
-            conn.commit()
-            
-            return jsonify({'success': True, 'message': 'Item updated successfully'})
-        
         if 'id' in differing_value_keys:
             return jsonify({'success': False, 'error': "The item ID was changed, this shouldn't be possible..."})
+        elif update_list_modified_date(conn, list_id):
+            if 'quantity' in differing_value_keys:
+                # find row in grocery_list_items table with corresponding item_id and list_id and update the quantity
+                # return
+                logger.info(f"Updating quantity to {new_item_data.get('quantity')} for item_id {old_item_data.get('id')} in list_id {list_id}")
+                conn.execute('''
+                    UPDATE grocery_list_items
+                    SET quantity = ?
+                    WHERE list_id = ? AND item_id = ?
+                ''', (new_item_data.get('quantity'), list_id, old_item_data.get('id')))
+                
+                conn.commit()
+                
+                return jsonify({'success': True, 'message': 'Quantity updated successfully'})
+            
+            if 'category' in differing_value_keys or 'name' in differing_value_keys:
+                # check if itemName/category pair exist as row in 'items' table
+                # if not, create new item, remove edited item from list, and add the new item in its place
+                # *** IDEA *** Might it be good to make (itemName, category) a primary key in the table?
+                # return
+                category_id = conn.execute('SELECT category_id FROM categories WHERE name = ?', (new_item_data.get('category'),)).fetchone()[0]
+                logger.info(f"category_id: {category_id}")
+                if category_id is None:
+                    return jsonify({'success': False, 'error': 'Category does not exist'})
+                exists = conn.execute('SELECT item_id FROM items WHERE name = ? AND category_id = ?', (new_item_data.get('name'), category_id)).fetchone()
+                logger.info(f"exists: {exists}")
+                if exists is None:
+                    # create new item
+                    conn.execute('INSERT INTO items (name, category_id) VALUES (?, ?)', (new_item_data.get('name'), category_id))
+                    new_item_id = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
+                else:
+                    new_item_id = exists[0]
+                # remove old item from list
+                conn.execute('DELETE FROM grocery_list_items WHERE list_id = ? AND item_id = ?', (list_id, old_item_data.get('id'),))
+                # add new item to list
+                conn.execute('INSERT INTO grocery_list_items (list_id, item_id, quantity) VALUES (?, ?, ?)', (list_id, new_item_id, new_item_data.get('quantity', 1)))
+                
+                conn.commit()
+                
+                return jsonify({'success': True, 'message': 'Item updated successfully'})
+        
     except Exception as e: #Make more specific
         return jsonify({'success': False, 'error': 'No changes detected.'})
     finally:
@@ -284,12 +292,18 @@ def delete_item():
         return jsonify({'success': False, 'error': 'Item ID is required'}), 400
     
     # Delete item from grocery_list_items table
-    conn.execute('DELETE FROM grocery_list_items WHERE list_id = ? AND item_id = ?', (list_id, item_id))
-    conn.commit()
-    conn.close()
-    
-    logger.info(f"Item with ID {item_id} deleted successfully")
-    return jsonify({'success': True}), 200
+    try:
+        logger.info('trying delete')
+        if update_list_modified_date(conn, list_id):
+            logger.info('about to delete')
+            conn.execute('DELETE FROM grocery_list_items WHERE list_id = ? AND item_id = ?', (list_id, item_id))
+            conn.commit()
+            logger.info(f"Item with ID {item_id} deleted successfully")
+            return jsonify({'success': True}), 200
+    except Exception as e:
+        return jsonify({'success': False, 'error': 'Error deleting item'})
+    finally:
+        conn.close()
 
 
 @app.route('/dashboard/get_item_suggestions', methods=['GET'])
@@ -315,6 +329,25 @@ def get_item_suggestions():
     items_list = [{'item_id': item[0], 'name': item[1], 'category_id': item[2]} for item in items]
     logger.info(f"Item suggestions for query '{query}': {items_list}")
     return jsonify({'success': True, 'items': items_list})
+
+
+def update_list_modified_date(conn, list_id):
+    # Update modified date in grocery_lists table in database
+    try:
+        conn.execute('''
+            UPDATE grocery_lists 
+            SET update_date = CURRENT_TIMESTAMP 
+            WHERE list_id = ?
+        ''', (list_id,))
+        
+        logger.info("List modification date updated successfully.")
+        
+        conn.commit()
+    except Exception as e:
+        return False
+    
+    return True
+
 
 def get_db_conn():
     return sqlite3.connect('grocery.db')

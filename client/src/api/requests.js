@@ -29,8 +29,8 @@ export const fetchCategories = async () => {
   return res.data;
 };
 
-// Fetch items in a list
-export const fetchItems = async (listId) => {
+// Fetch list data (items, list name, modified date)
+export const fetchListData = async (listId) => {
   const res = await api.get("/dashboard/home", { params: { list_id: listId } });
   return res.data;
 };
