@@ -29,33 +29,39 @@ export const fetchCategories = async () => {
   return res.data;
 };
 
+// Fetch lists user has access to
+export const fetchUserLists = async () => {
+  const res = await api.get("/dashboard/lists");
+  return res.data;
+};
+
 // Fetch list data (items, list name, modified date)
 export const fetchListData = async (listId) => {
-  const res = await api.get("/dashboard/home", { params: { list_id: listId } });
+  const res = await api.get("/list/get_items", { params: { list_id: listId } });
   return res.data;
 };
 
 // Add new item
 export const addItem = async (listId, item) => {
-  const res = await api.post("/dashboard/add_item", { listId, item });
+  const res = await api.post("/list/add_item", { listId, item });
   return res.data;
 };
 
 // Edit item
 export const editItem = async (listId, oldItem, newItem) => {
-  const res = await api.post("/dashboard/edit_item", { listId, oldItem, newItem });
+  const res = await api.post("/list/edit_item", { listId, oldItem, newItem });
   return res.data;
 };
 
 // Delete item
 export const deleteItem = async (listId, itemId) => {
-  const res = await api.post("/dashboard/delete_item", { currentListId: listId, itemId: itemId });
+  const res = await api.post("/list/delete_item", { currentListId: listId, itemId: itemId });
   return res.data;
 };
 
 // Retrieve autofill suggestions
 export const getItemSuggestions = async (query, signal) => {
-  const res = await api.get("/dashboard/get_item_suggestions", { 
+  const res = await api.get("/list/get_item_suggestions", { 
     params: { query },
     signal, 
   });

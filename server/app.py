@@ -52,6 +52,8 @@ def login():
     else:
         session.permanent = False
     
+    # Will need to be tied to an option I will add in the future to allow user to immediately get redirected to 
+    # their most recently edited list instead of the Dashboard page
     recent_list = conn.execute('''
         SELECT gl.list_id
         FROM grocery_lists gl
@@ -128,8 +130,32 @@ def get_categories():
     categories_list = [{'name': c[0], 'category_id': c[1]} for c in categories]
     return jsonify({'success': True, 'categories': categories_list})
 
-@app.route('/dashboard/home', methods=['GET'])
-def dashboard():
+@app.route('/dashboard/lists', methods=['GET'])
+def get_user_lists():
+    logger.info("Get user lists endpoint reached")
+    
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'User not logged in'}), 401
+    
+    user_id = session['user_id']
+    
+    conn = get_db_conn()
+    lists = conn.execute('''
+        SELECT gl.list_id, gl.name, gl.update_date
+        FROM grocery_lists gl
+        JOIN grocery_list_users glu ON gl.list_id = glu.list_id
+        WHERE glu.user_id = ?
+        ORDER BY gl.update_date DESC
+    ''', (user_id,)).fetchall()
+    conn.close()
+    
+    lists_info = [{'id': l[0], 'name': l[1], 'updateDate': l[2]} for l in lists]
+    logger.info(f"Fetched lists for user_id {user_id}: {lists_info}")
+    
+    return jsonify({'success': True, 'lists': lists_info})
+
+@app.route('/list/get_items', methods=['GET'])
+def get_list_items():
     logger.info("Dashboard endpoint reached")
     
     list_id = request.args.get('list_id', type=int)
@@ -169,7 +195,7 @@ def dashboard():
     #logger.info(f"items_list: {items_list}")
     return jsonify({'success': True, 'items': items_list, 'listName': list_name, 'modified': modified, 'otherUsers': usernames})
 
-@app.route('/dashboard/add_item', methods=['POST'])
+@app.route('/list/add_item', methods=['POST'])
 def add_item():
     conn = get_db_conn()
     
@@ -225,7 +251,7 @@ def add_item():
     finally:
         conn.close()
 
-@app.route('/dashboard/edit_item', methods=['POST'])
+@app.route('/list/edit_item', methods=['POST'])
 def edit_item():
     conn = get_db_conn()
     data = request.get_json()
@@ -290,7 +316,7 @@ def edit_item():
         conn.close()
 
 
-@app.route('/dashboard/delete_item', methods=['POST'])
+@app.route('/list/delete_item', methods=['POST'])
 def delete_item():
     conn = get_db_conn()
     
@@ -318,7 +344,7 @@ def delete_item():
         conn.close()
 
 
-@app.route('/dashboard/get_item_suggestions', methods=['GET'])
+@app.route('/list/get_item_suggestions', methods=['GET'])
 def get_item_suggestions():
     # Retrieve (item_id, name) from items table for all items 
     # whose name matches the query string (case insensitive, partial match)
