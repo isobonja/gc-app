@@ -22,6 +22,7 @@ import {
 } from 'react-bootstrap';
 
 import ListTable from '../components/ListTable';
+import UserNavbar from '../components/UserNavbar';
 import CenterSpinner from '../components/CenterSpinner';
 import { UserContext } from '../context/UserContext';
 
@@ -32,7 +33,6 @@ import {
   editItem as apiEditItem,
   deleteItem as apiDeleteItem,
   getSession,
-  logout as apiLogOut,
 } from '../api/requests';
 
 import { useItemSuggestions } from "../hooks/useItemSuggestions";
@@ -288,7 +288,7 @@ function ListView() {
     }
   };
 
-  const handleLogOut = async () => {
+  /*const handleLogOut = async () => {
 
     try {
       const data = await apiLogOut();
@@ -300,7 +300,7 @@ function ListView() {
     } catch (err) {
       console.error("Unable to log out, please try again later.");
     }
-  };
+  };*/
 
   // *** TOASTS ***
   const [toasts, setToasts] = useState([]);
@@ -344,7 +344,7 @@ function ListView() {
         ALSO LOOK INTO CUSTOM COLORS
       */}
       {/** Navigation Bar **/}
-      <Navbar expand="lg" className="bg-primary ps-3">
+      {/*<Navbar expand="lg" className="bg-primary ps-3">
         <Container fluid>
           <Navbar.Brand href="#home">
             {user ? `Welcome, ${user.username}` : "Welcome"}
@@ -361,7 +361,8 @@ function ListView() {
             </Nav>
           </Navbar.Collapse>
         </Container>
-      </Navbar>
+      </Navbar>*/}
+      <UserNavbar username={user.username} />
         
         {/**<Container>
           <Navbar.Brand href="#home">Grocery List App</Navbar.Brand>

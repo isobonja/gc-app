@@ -21,6 +21,8 @@ import {
   Badge
 } from 'react-bootstrap';
 
+import UserNavbar from '../components/UserNavbar';
+
 function Dashboard() {
   const navigate = useNavigate();
 
@@ -37,6 +39,7 @@ function Dashboard() {
 
   return (
     <div data-bs-theme="dark" className="d-flex flex-column min-vh-100">
+      <UserNavbar username={user ? user.username : null} />
       <Container className="grid grid-cols-3 gap-4">
         <p>Temp</p>
         {lists.map((list) => (
