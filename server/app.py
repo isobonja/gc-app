@@ -151,11 +151,23 @@ def dashboard():
     list_name = list_info[0] if list_info else ''
     modified = list_info[1] if list_info else None
     
+    # NEED TO TEST
+    list_users = conn.execute('''
+        SELECT u.username
+        FROM grocery_list_users glu
+        JOIN users u ON glu.user_id = u.user_id
+        WHERE glu.list_id = ?
+        AND u.user_id != ?
+    ''', (list_id, session['user_id'])).fetchall()
+
+    # Convert to a simple list of usernames
+    usernames = [row[0] for row in list_users]
+    
     conn.close()
     
     items_list = [{'name': item[0], 'category': item[1], 'quantity': item[2], 'item_id': item[3]} for item in items]
     #logger.info(f"items_list: {items_list}")
-    return jsonify({'success': True, 'items': items_list, 'listName': list_name, 'modified': modified})
+    return jsonify({'success': True, 'items': items_list, 'listName': list_name, 'modified': modified, 'otherUsers': usernames})
 
 @app.route('/dashboard/add_item', methods=['POST'])
 def add_item():
