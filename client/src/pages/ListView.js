@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useContext, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min';
 //import { BsGear } from "react-icons/bs";
@@ -41,6 +41,7 @@ const emptyItem = { name: "", category: "", quantity: 1, id: null };
 
 function ListView() {
   const navigate = useNavigate();
+  const { listId } = useParams();
   /** State Variables **/
   const { user, setUser } = useContext(UserContext);
 
@@ -103,7 +104,7 @@ function ListView() {
           if (data?.username) {
             setUser({
               username: data.username,
-              currentListId: data.currentListId,
+              currentListId: listId || data.currentListId || null,
             });
           }
         })
@@ -120,10 +121,12 @@ function ListView() {
 
   // Fetch items in user's current grocery list and categories on component mount
   useEffect(() => {
-    if (!user?.currentListId) return;   // safe guard
+    if (!listId || !user?.currentListId) return;   // safe guard
 
-    console.log(`Current list ID: ${user.currentListId}`);
-    fetchListData(user.currentListId)
+    //console.log(`Current list ID: ${user.currentListId}`);
+    console.log(`Current list ID: ${listId}`);
+    //fetchListData(user.currentListId)
+    fetchListData(listId)
       .then(data => {
         setItemsInList(data.items || []);
         setListName(data.listName || '');
@@ -148,7 +151,7 @@ function ListView() {
   const handleAddItem = async (e) => {
     e.preventDefault();
 
-    if(!user || !user.currentListId) {return;}
+    if(!user || !listId) {return;}
 
     console.log(`item name: ${addItem.name}\tcategory: ${addItem.category}\tquantity: ${addItem.quantity}`);
 
@@ -165,7 +168,8 @@ function ListView() {
     }
 
     try{
-      const data = await apiAddItem(user.currentListId, addItem);
+      //const data = await apiAddItem(user.currentListId, addItem);
+      const data = await apiAddItem(listId, addItem);
 
       if (data.error) {
         setAddItemError(data.error);
@@ -207,7 +211,7 @@ function ListView() {
   const handleEditItemSubmit = async (e) => {
     e.preventDefault();
 
-    if(!user || !user.currentListId) {return;}
+    if(!user || !listId) {return;}
 
     console.log("Edit item modal Submit button pressed");
 
@@ -231,7 +235,8 @@ function ListView() {
     }
 
     try {
-      const data = await apiEditItem(user.currentListId, {
+      //const data = await apiEditItem(user.currentListId, {
+      const data = await apiEditItem(listId, {
         name: originalEdit.current.name,
         category: originalEdit.current.category,
         quantity: originalEdit.current.quantity,
@@ -269,10 +274,11 @@ function ListView() {
     // Delete grocery_list_item entry corresponding to item
     console.log(`Item name: ${item.name}\tItem category: ${item.category}\tItem quantity: ${item.quantity}\tItem ID: ${item.item_id}`);
     
-    if(!user || !user.currentListId) {return;}
+    if(!user || !listId) {return;}
 
     try {
-      const data = await apiDeleteItem(user.currentListId, item.item_id);
+      //const data = await apiDeleteItem(user.currentListId, item.item_id);
+      const data = await apiDeleteItem(listId, item.item_id);
 
       if (data.error) {
         //setError(response.data.error);

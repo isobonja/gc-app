@@ -29,6 +29,12 @@ export const fetchCategories = async () => {
   return res.data;
 };
 
+// Create new list
+export const createNewList = async ({ listName, otherUsers }) => {
+  const res = await api.post("/dashboard/create_list", { listName, otherUsers });
+  return res.data;
+};
+
 // Fetch lists user has access to
 export const fetchUserLists = async () => {
   const res = await api.get("/dashboard/lists");

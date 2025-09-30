@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from "react-router-dom";
 import { useLogout } from '../hooks/useLogout';
 
 import {
@@ -11,6 +12,11 @@ import {
 function UserNavbar({ username }) {
 
   const logout = useLogout();
+  const navigate = useNavigate();
+
+  const goToDashboard = () => {
+    navigate("/dashboard");
+  };
 
   return (
     <Navbar expand="lg" className="bg-primary ps-3">
@@ -20,9 +26,15 @@ function UserNavbar({ username }) {
         </Navbar.Brand>
         <Navbar.Toggle aria-controls="dashboard-nav" />
         <Navbar.Collapse id="dashboard-nav">
+          <Nav>
+            <Button type="button" variant="outline-light" onClick={goToDashboard} className="me-2">
+              My Dashboard
+            </Button>
+          </Nav>
           <Nav className="me-auto">
             
           </Nav>
+          
           <Nav>
             <Button type="button" variant="outline-light" onClick={logout}>
               Log Out

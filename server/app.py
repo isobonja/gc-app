@@ -130,6 +130,43 @@ def get_categories():
     categories_list = [{'name': c[0], 'category_id': c[1]} for c in categories]
     return jsonify({'success': True, 'categories': categories_list})
 
+@app.route('/dashboard/create_list', methods=['POST'])
+def create_list():
+    logger.info("Create list endpoint reached")
+    
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'User not logged in'}), 401
+    
+    data = request.get_json()
+    list_name = data.get('listName', 'New List')
+    other_users = data.get('otherUsers', [])
+    
+    user_id = session['user_id']
+    
+    conn = get_db_conn()
+    
+    # Insert new list into grocery_lists table
+    cursor = conn.cursor()
+    cursor.execute('INSERT INTO grocery_lists (name, creation_date, update_date) VALUES (?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)', (list_name,))
+    list_id = cursor.lastrowid
+    
+    # Add current user to grocery_list_users table
+    cursor.execute('INSERT INTO grocery_list_users (list_id, user_id) VALUES (?, ?)', (list_id, user_id))
+    
+    # Add other users to grocery_list_users table if they exist
+    # WILL BE PROPERLY IMPLEMENTED LATER
+    '''for username in other_users:
+        other_user = conn.execute('SELECT user_id FROM users WHERE username = ?', (username,)).fetchone()
+        if other_user:
+            cursor.execute('INSERT INTO grocery_list_users (list_id, user_id) VALUES (?, ?)', (list_id, other_user[0]))'''
+    
+    conn.commit()
+    conn.close()
+    
+    logger.info(f"List '{list_name}' created with ID {list_id} by user_id {user_id}")
+    
+    return jsonify({'success': True, 'listId': list_id}), 201
+
 @app.route('/dashboard/lists', methods=['GET'])
 def get_user_lists():
     logger.info("Get user lists endpoint reached")
