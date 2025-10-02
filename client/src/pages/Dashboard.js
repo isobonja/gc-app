@@ -2,6 +2,7 @@ import React, { useEffect, useState, useContext, useRef } from 'react';
 import { useNavigate } from "react-router-dom";
 
 import { UserContext } from '../context/UserContext';
+import { useToasts } from '../context/ToastProvider';
 
 import { 
   Container, 
@@ -24,6 +25,7 @@ import { fetchUserLists,
 
 function Dashboard() {
   const navigate = useNavigate();
+  const { addToast } = useToasts();
 
   // User context
   // user is object with username and currentListId
@@ -57,11 +59,13 @@ function Dashboard() {
     navigate(`/list/${listId}`);
   };
 
-  const handleListCardDelete = async (listId) => {
+  const handleListCardDelete = async (listId, name) => {
     console.log("Delete list with id:", listId);
     try {
       const data = await apiDeleteList(listId);
       setReload((prev) => !prev);
+      addToast(`List "${name}" deleted`, "success");
+      
     } catch (err) {
       console.error("Error deleting list:", err);
     }
@@ -79,7 +83,8 @@ function Dashboard() {
       } else {
         console.error("Error creating new list:", data.message);
       }*/
-      setReload((prev) => !prev);     
+      setReload((prev) => !prev);
+      addToast(`List "${listName}" created`, "success");
     } catch (err) {
       console.error("Error creating new list:", err);
     }
@@ -126,7 +131,7 @@ function Dashboard() {
                     variant="danger" 
                     onClick={(e) => {
                       e.stopPropagation(); // prevent Card onClick from firing
-                      handleListCardDelete(list.id);
+                      handleListCardDelete(list.id, list.name);
                     }}
                   >
                     Delete

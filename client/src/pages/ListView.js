@@ -16,8 +16,6 @@ import {
   Button,
   Modal,
   Dropdown,
-  Toast,
-  ToastContainer,
   Spinner
 } from 'react-bootstrap';
 
@@ -25,6 +23,7 @@ import ListTable from '../components/ListTable';
 import UserNavbar from '../components/UserNavbar';
 import CenterSpinner from '../components/CenterSpinner';
 import { UserContext } from '../context/UserContext';
+import { useToasts } from '../context/ToastProvider';
 
 import {
   fetchCategories,
@@ -44,6 +43,7 @@ function ListView() {
   const { listId } = useParams();
   /** State Variables **/
   const { user, setUser } = useContext(UserContext);
+  const { addToast } = useToasts();
 
   // Page reload
   const [reload, setReload] = useState(false);
@@ -256,6 +256,7 @@ function ListView() {
 
       handleCloseEditItem();
       setReload(!reload);
+      addToast(`Item updated successfully!`, 'success');
 
     } catch (err) {
       setEditItemError('Failed to update item.');
@@ -288,6 +289,7 @@ function ListView() {
       }
 
       setReload(!reload);
+      addToast(`Item "${item.name}" deleted successfully!`, 'success');
     } catch (err) {
       console.error(err);
       addToast(err, 'error');
@@ -309,7 +311,7 @@ function ListView() {
   };*/
 
   // *** TOASTS ***
-  const [toasts, setToasts] = useState([]);
+  /*const [toasts, setToasts] = useState([]);
   
   const addToast = (message, variant = 'info', delay = 3000) => {
     const id = Date.now();
@@ -325,7 +327,7 @@ function ListView() {
 
   const removeToast = (id) => {
     setToasts(prev => prev.filter(t => t.id !== id));
-  };
+  };*/
 
   /*
   const baseSpinner = (container_height) => (
@@ -498,17 +500,6 @@ function ListView() {
           </Col>
         </Row>
 
-        {/* Switch List Button
-          Atm I'm thinking this button could upen up a Modal or Offcanvas 
-          containing a list of all lists the user has access to and also
-          a button to create a new list
-        */}
-        <Row className="">
-          <Col className="p-3">
-            <Button>Switch List</Button>
-          </Col>
-        </Row>
-
 
 
         {/** Edit Item Modal **/}
@@ -592,7 +583,7 @@ function ListView() {
       </Container>
 
       {/* Toasts */}
-      <ToastContainer 
+      {/*<ToastContainer 
         className="p-3"
         position='bottom-end' 
         style={{ zIndex: 10 }}
@@ -620,7 +611,7 @@ function ListView() {
             </Toast>
           );
         })}
-      </ToastContainer>
+      </ToastContainer>*/}
     </div>
   );
 }
