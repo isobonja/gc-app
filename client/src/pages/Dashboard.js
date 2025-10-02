@@ -16,8 +16,10 @@ import UserNavbar from '../components/UserNavbar';
 import CenterSpinner from '../components/CenterSpinner';
 import NewListModal from '../components/NewListModal';
 
-import { fetchUserLists } from '../api/requests';
-import { createNewList } from '../api/requests';
+import { fetchUserLists,
+  deleteList as apiDeleteList,
+  createNewList 
+} from '../api/requests';
 
 
 function Dashboard() {
@@ -53,6 +55,16 @@ function Dashboard() {
   const handleListCardClick = (listId) => {
     console.log("Clicked list card with id:", listId);
     navigate(`/list/${listId}`);
+  };
+
+  const handleListCardDelete = async (listId) => {
+    console.log("Delete list with id:", listId);
+    try {
+      const data = await apiDeleteList(listId);
+      setReload((prev) => !prev);
+    } catch (err) {
+      console.error("Error deleting list:", err);
+    }
   };
 
   const handleShowNewListModal = () => setShowNewListModal(true);
@@ -105,10 +117,18 @@ function Dashboard() {
                   className="w-25 h-25 bg-dark shadow-lg border-0 p-3 position-relative"
                   role="button"
                 >
-                  <h2 className="mb-2">{list.name}</h2>
-                  <p className="mb-1">Last updated: {list.updateDate}</p>
+                  <div className="text-center mt-4 mb-1">
+                    <h2 className="mb-2">{list.name}</h2>
+                    <p className="mb-1">Last updated: {list.updateDate}</p>
+                  </div>
                   <hr />
-                  <Button variant="danger" onClick={(e) => { e.stopPropagation(); /* delete action */ }}>
+                  <Button 
+                    variant="danger" 
+                    onClick={(e) => {
+                      e.stopPropagation(); // prevent Card onClick from firing
+                      handleListCardDelete(list.id);
+                    }}
+                  >
                     Delete
                   </Button>
                   <Badge 

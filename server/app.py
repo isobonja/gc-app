@@ -167,6 +167,46 @@ def create_list():
     
     return jsonify({'success': True, 'listId': list_id}), 201
 
+@app.route('/dashboard/delete_list', methods=['POST'])
+def delete_list():
+    logger.info("Delete list endpoint reached")
+    
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'User not logged in'}), 401
+    
+    data = request.get_json()
+    list_id = data.get('listId')
+    
+    if list_id is None:
+        return jsonify({'success': False, 'error': 'listId parameter is required'}), 400
+    
+    user_id = session['user_id']
+    
+    conn = get_db_conn()
+    
+    # Check if the user has access to the list
+    access_check = conn.execute('SELECT 1 FROM grocery_list_users WHERE list_id = ? AND user_id = ?', (list_id, user_id)).fetchone()
+    if not access_check:
+        conn.close()
+        return jsonify({'success': False, 'error': 'User does not have access to this list'}), 403
+    
+    try:
+        # Delete items associated with the list
+        conn.execute('DELETE FROM grocery_list_items WHERE list_id = ?', (list_id,))
+        # Delete user associations with the list
+        conn.execute('DELETE FROM grocery_list_users WHERE list_id = ?', (list_id,))
+        # Delete the list itself
+        conn.execute('DELETE FROM grocery_lists WHERE list_id = ?', (list_id,))
+        
+        conn.commit()
+        logger.info(f"List with ID {list_id} deleted successfully by user_id {user_id}")
+        return jsonify({'success': True}), 200
+    except Exception as e:
+        logger.error(f"Error deleting list with ID {list_id}: {e}")
+        return jsonify({'success': False, 'error': 'Error deleting list'}), 500
+    finally:
+        conn.close()
+
 @app.route('/dashboard/lists', methods=['GET'])
 def get_user_lists():
     logger.info("Get user lists endpoint reached")

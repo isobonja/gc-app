@@ -54,6 +54,7 @@ function NewListModal({ show, handleClose, onFormSubmit }) {
               placeholder="e.g., user1, user2"
               value={otherUsers}
               onChange={(e) => setOtherUsers(e.target.value)}
+              disabled
             />
           </Form.Group>
           {error && <p className="text-danger">{error}</p>}

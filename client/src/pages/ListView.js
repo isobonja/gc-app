@@ -110,7 +110,7 @@ function ListView() {
         })
         .catch(err => console.error("Failed to fetch session", err));
     }
-  }, [user, setUser]);
+  }, [user, setUser, listId]);
 
   // Fetch categories on component mount
   useEffect(() => {
@@ -145,7 +145,7 @@ function ListView() {
         setListOtherUsers(data.otherUsers || []);
       })
       .catch(err => console.error(err));
-  }, [reload, user?.currentListId]); // Run when component mounts or reload changes
+  }, [reload, user?.currentListId, listId]); // Run when component mounts or reload changes
 
   // Handle Add New Item form submission
   const handleAddItem = async (e) => {

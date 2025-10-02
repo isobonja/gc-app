@@ -35,6 +35,12 @@ export const createNewList = async ({ listName, otherUsers }) => {
   return res.data;
 };
 
+// Delete list
+export const deleteList = async (listId) => {
+  const res = await api.post("/dashboard/delete_list", { listId });
+  return res.data;
+};
+
 // Fetch lists user has access to
 export const fetchUserLists = async () => {
   const res = await api.get("/dashboard/lists");
