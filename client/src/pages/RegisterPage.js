@@ -10,13 +10,52 @@ function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
 
+  const passwordRules = {
+    length: {
+      test: (pw) => pw.length >= 8,
+      label: "At least 8 characters",
+    },
+    upper: {
+      test: (pw) => /[A-Z]/.test(pw),
+      label: "At least one uppercase letter",
+    },
+    lower: {
+      test: (pw) => /[a-z]/.test(pw),
+      label: "At least one lowercase letter",
+    },
+    number: {
+      test: (pw) => /\d/.test(pw),
+      label: "At least one number",
+    },
+    special: {
+      test: (pw) => /[!@#$%^&*(),.?":{}|<>]/.test(pw),
+      label: "At least one special character",
+    },
+  };
+
   const handleRegister = async (e) => {
     e.preventDefault();
+
+    if (!username) {
+      setError("Username is required.");
+      return;
+    }
+
+    if (!password) {
+      setError("Password is required.");
+      return;
+    }
 
     if (password !== confirmPassword) {
       setError("Passwords do not match.");
       return;
     }
+
+    /*const allValid = Object.values(passwordRules).every(rule => rule.test(password));
+    if (!allValid) {
+      setError("Password does not meet all requirements.");
+      return;
+    }*/
 
     try {
       const data = await apiRegister(username, password);
@@ -45,6 +84,21 @@ function RegisterPage() {
           <Form.Group className="mb-3" controlId="formPassword">
             <Form.Label>Password:</Form.Label>
             <Form.Control type="password" placeholder="Enter password" value={password} onChange={e => setPassword(e.target.value)} />
+
+            {/* Password requirements - DISABLED DURING DEVELOPMENT */}
+            {/*<ul className="mt-2 ps-3 small">
+              {Object.entries(passwordRules).map(([key, rule]) => {
+                const valid = rule.test(password);
+                return (
+                  <li
+                    key={key}
+                    className={valid ? "text-success" : "text-danger"}
+                  >
+                    {valid ? "✔️" : "❌"} {rule.label}
+                  </li>
+                );
+              })}
+            </ul>*/}
           </Form.Group> 
           <Form.Group className="mb-3" controlId="formConfirmPassword">
             <Form.Label>Confirm Password:</Form.Label>

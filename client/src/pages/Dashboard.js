@@ -44,8 +44,21 @@ function Dashboard() {
     const getLists = async () => {
       try {
         const data = await fetchUserLists();
-        setLists(data.lists);
-        console.log("Fetched user lists:", data.lists);
+
+        const processedLists = data.lists.map(l => {
+          let localDate = null;
+          if (l.updateDate) {
+            const utcDate = new Date(l.updateDate + " UTC");
+            localDate = utcDate.toLocaleString(undefined, {
+              dateStyle: "medium",
+              timeStyle: "short",
+            });
+          }
+          return { ...l, updateDate: localDate };
+        });
+
+        setLists(processedLists);
+        console.log("Fetched user lists:", processedLists);
         setGotLists(true);
       } catch (err) {
         console.error("Error fetching user lists:", err);
@@ -89,6 +102,11 @@ function Dashboard() {
       console.error("Error creating new list:", err);
     }
   };
+
+  // Spinner while loading dashboard
+  if (!user) {
+    return <CenterSpinner />;
+  }
 
   return (
     <div data-bs-theme="dark" className="d-flex flex-column min-vh-100">

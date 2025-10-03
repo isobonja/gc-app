@@ -36,7 +36,11 @@ import {
 
 import { useItemSuggestions } from "../hooks/useItemSuggestions";
 
+import { categoryIdToName } from '../util/utils';
+
 const emptyItem = { name: "", category: "", quantity: 1, id: null };
+
+const SUGGESTIONS_MAX_SHOW = 5;
 
 function ListView() {
   const navigate = useNavigate();
@@ -94,7 +98,6 @@ function ListView() {
   // Edit Item modal show & errors
   const [editItemShow, setEditItemShow] = useState(false);
   const [editItemError, setEditItemError] = useState('');
-
 
   // restore user from session on refresh
   useEffect(() => {
@@ -296,45 +299,7 @@ function ListView() {
     }
   };
 
-  /*const handleLogOut = async () => {
-
-    try {
-      const data = await apiLogOut();
-
-      if(data.success) {
-        setUser(null);
-        navigate('/');
-      }
-    } catch (err) {
-      console.error("Unable to log out, please try again later.");
-    }
-  };*/
-
-  // *** TOASTS ***
-  /*const [toasts, setToasts] = useState([]);
   
-  const addToast = (message, variant = 'info', delay = 3000) => {
-    const id = Date.now();
-    setToasts(prev => [...prev, { id, message, variant, delay, show: true }]);
-  };
-
-  const FADE_DURATION = 300;
-
-  const requestCloseToast = (id) => {
-    setToasts(prev => prev.map(t => t.id === id ? { ...t, show: false } : t));
-    setTimeout(() => removeToast(id), FADE_DURATION);
-  };
-
-  const removeToast = (id) => {
-    setToasts(prev => prev.filter(t => t.id !== id));
-  };*/
-
-  /*
-  const baseSpinner = (container_height) => (
-    <Container className="d-flex justify-content-center align-items-center" style={{ height: container_height || '100%' }}>
-      <Spinner animation="border" role="status"></Spinner>
-    </Container>
-  );*/
 
   // Spinner while loading dashboard
   if (!user || !listModifiedDate) {
@@ -451,9 +416,16 @@ function ListView() {
                   show={addItemSuggestionsVisible && addItemSuggestions.length > 0}
                   style={{ position: 'absolute', zIndex: 1000, width: '100%', top: '100%', marginTop: 0 }}
                 >
-                  {addItemSuggestions.map((suggestion, idx) => (
+                  {addItemSuggestions.slice(0, SUGGESTIONS_MAX_SHOW).map((suggestion, idx) => (
                     <Dropdown.Item key={idx} onClick={() => handleSuggestionClick(suggestion)}> {/*Suggestion here is object with keys {item_id, name, category_id}*/}
-                      {suggestion.name}
+                      <Container className="p-0 m-0">
+                        <Row>
+                          <Col>{suggestion.name}</Col>
+                          <Col className="text-end text-muted">
+                            <small><i>{categoryIdToName(suggestion.category_id, categories)}</i></small>
+                          </Col>
+                        </Row>
+                      </Container>
                     </Dropdown.Item>
                   ))}
                 </Dropdown.Menu>
@@ -531,12 +503,19 @@ function ListView() {
                     marginTop: 0,
                   }}
                 >
-                  {editItemSuggestions.map((suggestion, idx) => (
+                  {editItemSuggestions.slice(0, SUGGESTIONS_MAX_SHOW).map((suggestion, idx) => (
                     <Dropdown.Item
                       key={idx}
                       onClick={() => handleEditSuggestionClick(suggestion)}
                     >
-                      {suggestion.name}
+                      <Container className="p-0 m-0">
+                        <Row>
+                          <Col>{suggestion.name}</Col>
+                          <Col className="text-end text-muted">
+                            <small><i>{categoryIdToName(suggestion.category_id, categories)}</i></small>
+                          </Col>
+                        </Row>
+                      </Container>
                     </Dropdown.Item>
                   ))}
                 </Dropdown.Menu>

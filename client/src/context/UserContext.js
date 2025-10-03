@@ -3,6 +3,8 @@ import axios from 'axios';
 
 import CenterSpinner from "../components/CenterSpinner";
 
+import { getSession } from "../api/requests";
+
 export const UserContext = createContext({
   user: { username: "", currentListId: null },
   setUser: () => {},
@@ -16,14 +18,12 @@ export function UserProvider({ children }) {
   useEffect(() => {
     async function fetchSession() {
       try {
-        const res = await axios.get("/api/session", {
-          withCredentials: true, // send cookies to Flask
-        });
+        const data = await getSession();
 
-        if (res.data.loggedIn) {
+        if (data.loggedIn) {
           setUser({
-            username: res.data.username,
-            currentListId: res.data.currentListId,
+            username: data.username,
+            currentListId: data.currentListId,
           });
         }
       } catch (err) {
@@ -36,9 +36,9 @@ export function UserProvider({ children }) {
     fetchSession();
   }, []);
 
-  if (loading) {
-    return <CenterSpinner />; // optional spinner
-  }
+  //if (loading) {
+  //  return <CenterSpinner />; // optional spinner
+  //}
 
   return (
     <UserContext.Provider value={{ user, setUser }}>

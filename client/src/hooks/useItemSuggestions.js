@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { getItemSuggestions } from "../api/requests";
+import { categoryIdToName } from "../util/utils";
 
 export function useItemSuggestions(currentName, categories, setItem) {
   const [suggestions, setSuggestions] = useState([]);
@@ -40,7 +41,7 @@ export function useItemSuggestions(currentName, categories, setItem) {
     setItem((prev) => ({
       ...prev,
       name: suggestion.name,
-      category: categories.find((cat) => cat.category_id === suggestion.category_id)?.name || "",
+      category: categoryIdToName(suggestion.category_id, categories),
       id: suggestion.item_id,
     }));
     setVisible(false);

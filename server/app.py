@@ -428,14 +428,16 @@ def get_item_suggestions():
 
     query = request.args.get('query', '').lower()
     
+    logger.info(f"Item suggestions endpoint reached with query: {query}")
+    
     conn = get_db_conn()
     #items = conn.execute('SELECT item_id, name FROM items WHERE name LIKE ?', (f'%{query}%',)).fetchall()
     items = conn.execute(
         '''
         SELECT item_id, name, category_id
         FROM items
-        WHERE name LIKE ?            -- starts with query
-        AND name != ?              -- exclude exact matches
+        WHERE name LIKE ?              -- starts with query
+        AND name != ? COLLATE NOCASE   -- exclude matches
         ''',
         (f'{query}%', query)
     ).fetchall()
