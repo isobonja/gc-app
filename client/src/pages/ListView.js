@@ -38,9 +38,9 @@ import { useItemSuggestions } from "../hooks/useItemSuggestions";
 
 import { categoryIdToName } from '../util/utils';
 
-const emptyItem = { name: "", category: "", quantity: 1, id: null };
+import { SUGGESTIONS_MAX_SHOW } from '../constants/constants';
 
-const SUGGESTIONS_MAX_SHOW = 5;
+const emptyItem = { name: "", category: "", quantity: 1, id: null };
 
 function ListView() {
   const navigate = useNavigate();
@@ -102,6 +102,7 @@ function ListView() {
   // restore user from session on refresh
   useEffect(() => {
     if (!user || !user.username) {   // only fetch if context is empty
+      console.log("Fetching user session...");
       getSession()
         .then(data => {
           if (data?.username) {
@@ -112,6 +113,7 @@ function ListView() {
           }
         })
         .catch(err => console.error("Failed to fetch session", err));
+      console.log(`Fetched session; currentListId: ${user?.currentListId}`);
     }
   }, [user, setUser, listId]);
 
@@ -124,7 +126,12 @@ function ListView() {
 
   // Fetch items in user's current grocery list and categories on component mount
   useEffect(() => {
-    if (!listId || !user?.currentListId) return;   // safe guard
+    if (!listId) {
+      if (!user?.currentListId) {
+        console.error("No current list ID in user context");
+      }
+      return;   // safe guard
+    }
 
     //console.log(`Current list ID: ${user.currentListId}`);
     console.log(`Current list ID: ${listId}`);
@@ -386,7 +393,9 @@ function ListView() {
           {/** Current Grocery List Table **/}
           <Col className="border mx-3">
             {itemsInList.length === 0 ? (
-              <CenterSpinner height="50vh" />
+              <Container className="d-flex flex-column align-items-center justify-content-center p-5">
+                <p>No items.</p>
+              </Container>
             ) : (
               <ListTable 
                 items={itemsInList}

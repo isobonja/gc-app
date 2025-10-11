@@ -83,7 +83,7 @@ def register():
     password = data.get('password')
 
     if not username or not password:
-        return jsonify({'success': False, 'error': 'Username and password are required'}), 400
+        return jsonify({'success': False, 'error': 'Username and password are required'})
 
     conn = get_db_conn()
     
@@ -92,7 +92,7 @@ def register():
     if existing_user:
         logger.warning(f"Username {username} already exists")
         conn.close()
-        return jsonify({'success': False, 'error': 'Username already exists'}), 409
+        return jsonify({'success': False, 'error': 'Username already exists'})
 
     # Hash the password
     hashed_pw = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
@@ -141,6 +141,8 @@ def create_list():
     list_name = data.get('listName', 'New List')
     other_users = data.get('otherUsers', [])
     
+    logger.info(f"Creating list with name: {list_name} and other users: {other_users}")
+    
     user_id = session['user_id']
     
     conn = get_db_conn()
@@ -155,10 +157,8 @@ def create_list():
     
     # Add other users to grocery_list_users table if they exist
     # WILL BE PROPERLY IMPLEMENTED LATER
-    '''for username in other_users:
-        other_user = conn.execute('SELECT user_id FROM users WHERE username = ?', (username,)).fetchone()
-        if other_user:
-            cursor.execute('INSERT INTO grocery_list_users (list_id, user_id) VALUES (?, ?)', (list_id, other_user[0]))'''
+    for user in other_users:
+        cursor.execute('INSERT INTO grocery_list_users (list_id, user_id) VALUES (?, ?)', (list_id, user['user_id']))
     
     conn.commit()
     conn.close()
@@ -224,11 +224,40 @@ def get_user_lists():
         WHERE glu.user_id = ?
         ORDER BY gl.update_date DESC
     ''', (user_id,)).fetchall()
+    
+    list_ids = [l[0] for l in lists]
+    
+    if list_ids:
+        other_users_map = {}
+        
+        placeholders = ', '.join(['?'] * len(list_ids))
+        other_users_query = f'''
+            SELECT glu.list_id, u.username
+            FROM grocery_list_users glu
+            JOIN users u ON glu.user_id = u.user_id
+            WHERE glu.list_id IN ({placeholders})
+              AND glu.user_id != ?
+        '''
+        other_users_rows = conn.execute(other_users_query, (*list_ids, user_id)).fetchall()
+
+        for list_id, username in other_users_rows:
+            if list_id not in other_users_map:
+                other_users_map[list_id] = []
+            other_users_map[list_id].append(username)
+        
     conn.close()
     
-    lists_info = [{'id': l[0], 'name': l[1], 'updateDate': l[2]} for l in lists]
+    lists_info = []
+    for l in lists:
+        list_id, name, update_date = l
+        lists_info.append({
+            'id': list_id,
+            'name': name,
+            'updateDate': update_date,
+            'otherUsers': other_users_map.get(list_id, [])
+        })
+
     logger.info(f"Fetched lists for user_id {user_id}: {lists_info}")
-    
     return jsonify({'success': True, 'lists': lists_info})
 
 @app.route('/list/get_items', methods=['GET'])
@@ -446,6 +475,31 @@ def get_item_suggestions():
     items_list = [{'item_id': item[0], 'name': item[1], 'category_id': item[2]} for item in items]
     logger.info(f"Item suggestions for query '{query}': {items_list}")
     return jsonify({'success': True, 'items': items_list})
+
+@app.route('/list/get_user_suggestions', methods=['GET'])
+def get_user_suggestions():
+    # Retrieve usernames from users table based on query string (case insensitive, partial match)
+
+    query = request.args.get('query', '').lower()
+    
+    logger.info(f"User suggestions endpoint reached with query: {query}")
+    
+    conn = get_db_conn()
+
+    users = conn.execute(
+        '''
+        SELECT user_id, username
+        FROM users
+        WHERE username LIKE ?              -- starts with query
+        AND username != ? COLLATE NOCASE   -- exclude matches
+        ''',
+        (f'{query}%', session['username'])
+    ).fetchall()
+    conn.close()
+    
+    users_list = [{'user_id': user[0], 'username': user[1]} for user in users]
+    logger.info(f"User suggestions for query '{query}': {users_list}")
+    return jsonify({'success': True, 'users': users_list})
 
 
 def update_list_modified_date(conn, list_id):

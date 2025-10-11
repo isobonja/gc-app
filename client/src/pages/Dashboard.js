@@ -22,6 +22,8 @@ import { fetchUserLists,
   createNewList 
 } from '../api/requests';
 
+import { formatListCardUserDisplay } from '../util/utils';
+
 
 function Dashboard() {
   const navigate = useNavigate();
@@ -115,7 +117,7 @@ function Dashboard() {
         <CenterSpinner />
       ) : (
         <>
-          <Container fluid className="ps-3 pt-3">
+          <Container fluid className="ps-3 pt-3 ">
             <Row className="ps-3 align-items-center">
               <Col xs="auto">
                 <h1>Your Lists</h1>
@@ -131,37 +133,48 @@ function Dashboard() {
           ) : (
             <Container 
               fluid 
-              className="m-3 p-3 w-auto d-flex flex-wrap gap-4 border"
+              className="m-3 p-3 w-auto border d-flex flex-column flex-fill"
             >
-              {lists.map((list) => (
-                <Card
-                  key={list.id}
-                  onClick={() => handleListCardClick(list.id)}
-                  className="w-25 h-25 bg-dark shadow-lg border-0 p-3 position-relative"
-                  role="button"
-                >
-                  <div className="text-center mt-4 mb-1">
-                    <h2 className="mb-2">{list.name}</h2>
-                    <p className="mb-1">Last updated: {list.updateDate}</p>
-                  </div>
-                  <hr />
-                  <Button 
-                    variant="danger" 
-                    onClick={(e) => {
-                      e.stopPropagation(); // prevent Card onClick from firing
-                      handleListCardDelete(list.id, list.name);
-                    }}
-                  >
-                    Delete
-                  </Button>
-                  <Badge 
-                    bg={list.isShared ? "success" : "primary"}
-                    className="position-absolute top-0 start-0 m-2"
-                  >
-                    {list.isShared ? "Shared" : "Private"}
-                  </Badge>
-                </Card>
-              ))}
+              <Row className="g-4">
+                {lists.map((list) => (
+                  <Col key={list.id} xs={12} sm={6} md={4} lg={3}>
+                    <Card
+                      onClick={() => handleListCardClick(list.id)}
+                      className="h-100 bg-dark shadow-lg border-0 p-3 position-relative d-flex flex-column"
+                      role="button"
+                    >
+                      <div className="text-center mt-4 mb-1 flex-grow-1">
+                        <h2 className="mb-2">{list.name}</h2>
+                        <p className="mb-1">Last updated: {list.updateDate}</p>
+                        <small className="text-muted"><i>
+                          {list.otherUsers.length > 0 
+                            ? <>Shared with: {formatListCardUserDisplay(list.otherUsers)}</>
+                            : ""}
+                        </i></small>
+                      </div>
+                      <hr />
+                      <div className="mt-auto d-flex justify-content-between align-items-center">
+                        <Button 
+                          className="w-100" 
+                          variant="danger"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleListCardDelete(list.id, list.name);
+                          }}
+                        >
+                          Delete
+                        </Button>
+                        <Badge 
+                          bg={list.otherUsers.length > 0 ? "success" : "primary"}
+                          className="position-absolute top-0 start-0 m-2"
+                        >
+                          {list.otherUsers.length > 0 ? "Shared" : "Private"}
+                        </Badge>
+                      </div>
+                    </Card>
+                  </Col>
+                ))}
+              </Row>
             </Container>
           )}
         </>

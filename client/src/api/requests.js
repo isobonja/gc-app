@@ -71,9 +71,18 @@ export const deleteItem = async (listId, itemId) => {
   return res.data;
 };
 
-// Retrieve autofill suggestions
+// Retrieve item autofill suggestions
 export const getItemSuggestions = async (query, signal) => {
   const res = await api.get("/list/get_item_suggestions", { 
+    params: { query },
+    signal, 
+  });
+  return res.data;
+};
+
+// Retrieve user autofill suggestions
+export const getUserSuggestions = async (query, signal) => {
+  const res = await api.get("/list/get_user_suggestions", { 
     params: { query },
     signal, 
   });
