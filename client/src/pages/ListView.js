@@ -22,6 +22,7 @@ import {
 import ListTable from '../components/ListTable';
 import UserNavbar from '../components/UserNavbar';
 import CenterSpinner from '../components/CenterSpinner';
+import AddUsersModal from '../components/AddUsersModal';
 import { UserContext } from '../context/UserContext';
 import { useToasts } from '../context/ToastProvider';
 
@@ -32,6 +33,7 @@ import {
   editItem as apiEditItem,
   deleteItem as apiDeleteItem,
   getSession,
+  addUsersToList
 } from '../api/requests';
 
 import { useItemSuggestions } from "../hooks/useItemSuggestions";
@@ -39,6 +41,7 @@ import { useItemSuggestions } from "../hooks/useItemSuggestions";
 import { categoryIdToName } from '../util/utils';
 
 import { SUGGESTIONS_MAX_SHOW } from '../constants/constants';
+
 
 const emptyItem = { name: "", category: "", quantity: 1, id: null };
 
@@ -98,6 +101,9 @@ function ListView() {
   // Edit Item modal show & errors
   const [editItemShow, setEditItemShow] = useState(false);
   const [editItemError, setEditItemError] = useState('');
+
+  const [showAddUsersModal, setShowAddUsersModal] = useState(false);
+
 
   // restore user from session on refresh
   useEffect(() => {
@@ -306,7 +312,20 @@ function ListView() {
     }
   };
 
+  const handleShowAddUsersModal = () => setShowAddUsersModal(true);
+  const handleCloseAddUsersModal = () => setShowAddUsersModal(false);
   
+  const handleAddUsersFormSubmit = async ({ otherUsers }) => {
+    console.log("Adding users to list...");
+    try {
+      const data = await addUsersToList({ listId, otherUsers });
+      
+      setReload((prev) => !prev);
+      addToast("Users added to list!", "success");
+    } catch (err) {
+      console.error("Error creating new list:", err);
+    }
+  };
 
   // Spinner while loading dashboard
   if (!user || !listModifiedDate) {
@@ -360,31 +379,47 @@ function ListView() {
       <Container fluid className="d-flex flex-column flex-fill">
 
         {/* List Info */}
-        <Row className="mx-1 my-3 p-3 align-items-center border rounded-3 shadow-sm bg-dark text-light">
+        <Row className="mx-1 my-3 p-3 align-items-center border rounded-3 shadow-sm bg-dark text-light justify-content-between">
           <Col>
             <Row className="align-items-center">
               <Col xs="auto">
                 <h3 className="mb-0 fw-bold">{listName}</h3>
               </Col>
               <Col>
+                <small className="text-muted mb-0">
+                  Last Modified: {listModifiedDate}
+                </small>
+              </Col>
+            </Row>
+          </Col>
+
+          <Col xs="auto">
+            <div className="d-flex align-items-center">
+              <div className="d-flex align-items-center flex-wrap">
                 {listOtherUsers.length > 0 ? (
                   <>
-                    <small className="text-muted">Shared with: </small>
+                    <small className="text-muted me-1">Shared with:</small>
                     {listOtherUsers.map((username, idx) => (
                       <small key={idx} className="text-muted me-1">
-                        {username}{idx < listOtherUsers.length - 1 ? ',' : ''}
+                        {username}
+                        {idx < listOtherUsers.length - 1 ? ',' : ''}
                       </small>
                     ))}
                   </>
                 ) : (
-                  <small className="text-muted">Private List</small>
+                  <small className="text-muted me-3">Private List</small>
                 )}
-              </Col>
-            </Row>
-            
-          </Col>
-          <Col className="text-end">
-            <small className="text-muted">Last Modified: {listModifiedDate}</small>
+              </div>
+
+              <Button 
+                variant="primary" 
+                size="sm"
+                className="ms-3"
+                onClick={handleShowAddUsersModal}
+              >
+                Add Users
+              </Button>
+            </div>
           </Col>
         </Row>
 
@@ -568,38 +603,16 @@ function ListView() {
             </Button>
           </Modal.Footer>
         </Modal>
+
+        {/** Add Users Modal **/}
+        <AddUsersModal
+          show={showAddUsersModal}
+          handleClose={handleCloseAddUsersModal}
+          onFormSubmit={handleAddUsersFormSubmit}
+          listName={listName}
+        />  
+
       </Container>
-
-      {/* Toasts */}
-      {/*<ToastContainer 
-        className="p-3"
-        position='bottom-end' 
-        style={{ zIndex: 10 }}
-      >
-        {toasts.map(toast => {
-          const variant =
-            toast.variant === "success" ? "success" :
-            toast.variant === "error"   ? "danger"  :
-                                      "secondary";
-          const textClass = variant === "secondary" ? "" : "text-white";
-
-          return (
-            <Toast
-              key={toast.id} 
-              show={toast.show} 
-              onClose={() => requestCloseToast(toast.id)}
-              autohide 
-              delay={toast.delay} 
-              bg={variant}
-              className={textClass}
-              style={{ minWidth: "250px", marginBottom: "10px" }}
-              animation
-            >
-              <Toast.Body>{toast.message}</Toast.Body>
-            </Toast>
-          );
-        })}
-      </ToastContainer>*/}
     </div>
   );
 }

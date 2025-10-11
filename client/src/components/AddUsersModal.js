@@ -1,3 +1,6 @@
+//Note: might be possible to generalize NewListModal and AddUsersModal to some extent
+//   Look into this later
+
 import React, { useState } from "react";
 import { 
   Modal, 
@@ -14,8 +17,7 @@ import { useUserSuggestions } from "../hooks/useUserSuggestions";
 
 import { SUGGESTIONS_MAX_SHOW } from '../constants/constants';
 
-function NewListModal({ show, handleClose, onFormSubmit }) {
-  const [listName, setListName] = useState("");
+function AddUsersModal({ show, handleClose, onFormSubmit, listName }) {
   const [username, setUsername] = useState("");
   const [otherUsers, setOtherUsers] = useState([]);
   const [error, setError] = useState(null);
@@ -29,16 +31,8 @@ function NewListModal({ show, handleClose, onFormSubmit }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!listName.trim()) {
-      setError("List name is required.");
-      return;
-    }
+    const data = await onFormSubmit({ otherUsers });
 
-    setError(null);
-
-    const data = await onFormSubmit({ listName, otherUsers });
-
-    setListName("");
     setUsername("");
     setOtherUsers("");
     setError(null);
@@ -52,25 +46,14 @@ function NewListModal({ show, handleClose, onFormSubmit }) {
   return (
     <Modal show={show} onHide={handleClose} centered>
       <Modal.Header closeButton>
-        <Modal.Title>Create New List</Modal.Title>
+        <Modal.Title>Add Users to {listName}</Modal.Title>
       </Modal.Header>
 
       <Modal.Body>
-        <Form className="p-3" id="newListForm" onSubmit={handleSubmit}>
-          <Form.Group className="mb-3" controlId="formListName">
-            <Form.Label>List Name</Form.Label>
-            <Form.Control
-              type="text"
-              placeholder="Enter list name"
-              value={listName}
-              onChange={(e) => setListName(e.target.value)}
-              required
-            />
-          </Form.Group>
-
+        <Form className="p-3" id="addUsersForm" onSubmit={handleSubmit}>
           <div className="position-relative w-100">
             <Form.Group className="mb-3" controlId="formOtherUsers">
-              <Form.Label>Share with other users: </Form.Label>
+              <Form.Label>Search other users: </Form.Label>
               <Form.Control
                 type="text"
                 placeholder="Enter username"
@@ -129,12 +112,12 @@ function NewListModal({ show, handleClose, onFormSubmit }) {
         <Button variant="secondary" onClick={handleClose}>
           Cancel
         </Button>
-        <Button variant="primary" type="submit" form="newListForm">
-          Create List
+        <Button variant="primary" type="submit" form="addUsersForm">
+          Add Users
         </Button>
       </Modal.Footer>
     </Modal>
   );
 }
 
-export default NewListModal;
+export default AddUsersModal;

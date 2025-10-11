@@ -71,6 +71,12 @@ export const deleteItem = async (listId, itemId) => {
   return res.data;
 };
 
+// Add users to specified list
+export const addUsersToList = async ({ listId, otherUsers }) => {
+  const res = await api.post("/list/add_users_to_list", {currentListId: listId, otherUsers: otherUsers });
+  return res.data;
+};
+
 // Retrieve item autofill suggestions
 export const getItemSuggestions = async (query, signal) => {
   const res = await api.get("/list/get_item_suggestions", { 

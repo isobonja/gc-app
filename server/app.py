@@ -449,6 +449,25 @@ def delete_item():
     finally:
         conn.close()
 
+@app.route('/list/add_users_to_list', methods=['POST'])
+def add_users_to_list():
+    conn = get_db_conn()
+    
+    data = request.get_json()
+    list_id = data.get('currentListId')
+    other_users = data.get('otherUsers')
+    
+    logger.info(f"Adding {other_users} to list {list_id}")
+    
+    if not other_users:
+        return jsonify({'success': False, 'error': "No other users specified."})
+    
+    with get_db_conn() as conn:
+        for user in other_users:
+            logger.info(f"User: {user}")
+            conn.execute('INSERT INTO grocery_list_users (list_id, user_id) VALUES (?, ?)', (list_id, user.get('user_id')))
+    
+    return jsonify({'success': True, 'message': f'Successfully added users to list with id {list_id}'})
 
 @app.route('/list/get_item_suggestions', methods=['GET'])
 def get_item_suggestions():
