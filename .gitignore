@@ -4,6 +4,7 @@ __pycache__/
 
 # Flask
 server/venv/
+server/grocery.db
 
 # React / Node
 client/node_modules
@@ -14,3 +15,9 @@ package-lock.json
 package.json
 
 
+
+SUGGESTIONS.md
+notes.md
+NEW_LIST_MODAL_DESIGN_IDEA.kra
+grocery_list_app.xlsx
+CURRENT_TASK.md

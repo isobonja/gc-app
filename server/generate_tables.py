@@ -44,6 +44,7 @@ cursor.execute('''
 CREATE TABLE IF NOT EXISTS grocery_list_users (
     list_id INTEGER,
     user_id INTEGER,
+    role TEXT NOT NULL CHECK (role IN ('owner', 'admin', 'editor', 'viewer', 'temporary')) DEFAULT 'viewer',
     PRIMARY KEY (list_id, user_id),
     FOREIGN KEY (list_id) REFERENCES grocery_lists (list_id),
     FOREIGN KEY (user_id) REFERENCES users (user_id)
@@ -78,20 +79,21 @@ for n, p in users:
 
 # How to insert category
 categories = [
-    ('fruits',),
-    ('vegetables',),
-    ('canned goods',),
     ('dairy',),
     ('meat',),
     ('fish/seafood',),
+    ('fruits',),
+    ('vegetables',),
+    ('canned/pantry',),
+    ('bread/bakery',),
+    ('pasta/grains',),
     ('deli',),
     ('condiments/spices',),
     ('snacks',),
-    ('bread/bakery',),
     ('beverages',),
-    ('pasta/grains',),
     ('baking',),
     ('frozen',),
+    ('prepared foods',),
     ('personal care',),
     ('cleaning/household items',),
     ('pet care',)
@@ -127,7 +129,7 @@ for item, category in test_items:
 
 grocery_lists = [
     #('test_list1', ['Jay', 'Eddie'])
-    ('test_list1', ['Vivo'])
+    ('test_list1', ['Vivo'], 'owner')
 ]
 
 for new_list in grocery_lists:
@@ -148,9 +150,9 @@ for new_list in grocery_lists:
     
     for user_id in user_ids:
         cursor.execute('''
-            INSERT INTO grocery_list_users (list_id, user_id)
-            VALUES (?, ?)               
-        ''', (list_id, user_id))
+            INSERT INTO grocery_list_users (list_id, user_id, role)
+            VALUES (?, ?, ?)               
+        ''', (list_id, user_id, new_list[2]))
         
 #list_id, item_id, quantity
 items_to_list = [
