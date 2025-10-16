@@ -153,12 +153,11 @@ def create_list():
     list_id = cursor.lastrowid
     
     # Add current user to grocery_list_users table
-    cursor.execute('INSERT INTO grocery_list_users (list_id, user_id) VALUES (?, ?)', (list_id, user_id))
+    cursor.execute('INSERT INTO grocery_list_users (list_id, user_id, role) VALUES (?, ?, ?)', (list_id, user_id, 'owner'))
     
     # Add other users to grocery_list_users table if they exist
-    # WILL BE PROPERLY IMPLEMENTED LATER
     for user in other_users:
-        cursor.execute('INSERT INTO grocery_list_users (list_id, user_id) VALUES (?, ?)', (list_id, user['user_id']))
+        cursor.execute('INSERT INTO grocery_list_users (list_id, user_id, role) VALUES (?, ?, ?)', (list_id, user['user_id'], user['role'].lower()))
     
     conn.commit()
     conn.close()
@@ -184,6 +183,7 @@ def delete_list():
     
     conn = get_db_conn()
     
+    logger.info(f"delete_list called with list_id={list_id} ({type(list_id)}), user_id={user_id} ({type(user_id)})")
     # Check if the user has access to the list
     access_check = conn.execute('SELECT 1 FROM grocery_list_users WHERE list_id = ? AND user_id = ?', (list_id, user_id)).fetchone()
     if not access_check:
@@ -218,7 +218,7 @@ def get_user_lists():
     
     conn = get_db_conn()
     lists = conn.execute('''
-        SELECT gl.list_id, gl.name, gl.update_date
+        SELECT gl.list_id, gl.name, glu.role, gl.update_date
         FROM grocery_lists gl
         JOIN grocery_list_users glu ON gl.list_id = glu.list_id
         WHERE glu.user_id = ?
@@ -249,57 +249,69 @@ def get_user_lists():
     
     lists_info = []
     for l in lists:
-        list_id, name, update_date = l
+        list_id, name, role, update_date = l
+        list_type = "shared" if list_id in other_users_map else "private"
         lists_info.append({
             'id': list_id,
             'name': name,
-            'updateDate': update_date,
-            'otherUsers': other_users_map.get(list_id, [])
+            'type': list_type,
+            'role': role.capitalize(),
+            'last_updated': update_date,
+            'other_users': other_users_map.get(list_id, [])
         })
 
     logger.info(f"Fetched lists for user_id {user_id}: {lists_info}")
     return jsonify({'success': True, 'lists': lists_info})
 
-@app.route('/list/get_items', methods=['GET'])
-def get_list_items():
-    logger.info("Dashboard endpoint reached")
+@app.route('/list/get_list_data', methods=['GET'])
+def get_list_data():
+    logger.info("Get List Data endpoint reached")
     
     list_id = request.args.get('list_id', type=int)
     
     if list_id is None:
         return jsonify({'success': False, 'error': 'list_id parameter is required'}), 400
     
-    conn = get_db_conn()
-    items = conn.execute('''
-        SELECT i.name, c.name AS category, gli.quantity, i.item_id
-        FROM grocery_list_items gli
-        JOIN items i ON gli.item_id = i.item_id
-        JOIN categories c ON i.category_id = c.category_id
-        WHERE gli.list_id = ?
-    ''', (list_id,)).fetchall()
+    with get_db_conn() as conn:
+        user_role = conn.execute('''
+            SELECT role
+            FROM grocery_list_users
+            WHERE list_id = ? 
+            AND user_id = ?                               
+        ''', (list_id, session['user_id'])).fetchone()
+        
+        if not user_role:
+            return jsonify({'success': False, 'error': 'You do not have access to this list!'})
+        
+        items = conn.execute('''
+            SELECT i.name, c.name AS category, gli.quantity, i.item_id
+            FROM grocery_list_items gli
+            JOIN items i ON gli.item_id = i.item_id
+            JOIN categories c ON i.category_id = c.category_id
+            WHERE gli.list_id = ?
+        ''', (list_id,)).fetchall()
 
-    #logger.info(f"Fetched items: {items}")
-    list_info = conn.execute('SELECT name, update_date FROM grocery_lists WHERE list_id = ?', (list_id,)).fetchone()
-    list_name = list_info[0] if list_info else ''
-    modified = list_info[1] if list_info else None
-    
-    # NEED TO TEST
-    list_users = conn.execute('''
-        SELECT u.username
-        FROM grocery_list_users glu
-        JOIN users u ON glu.user_id = u.user_id
-        WHERE glu.list_id = ?
-        AND u.user_id != ?
-    ''', (list_id, session['user_id'])).fetchall()
+        #logger.info(f"Fetched items: {items}")
+        list_info = conn.execute('SELECT name, update_date FROM grocery_lists WHERE list_id = ?', (list_id,)).fetchone()
+        list_name = list_info[0] if list_info else ''
+        modified = list_info[1] if list_info else None
+        
+        # NEED TO TEST
+        list_users = conn.execute('''
+            SELECT u.user_id, u.username, glu.role
+            FROM grocery_list_users glu
+            JOIN users u ON glu.user_id = u.user_id
+            WHERE glu.list_id = ?
+            AND u.user_id != ?
+        ''', (list_id, session['user_id'])).fetchall()
 
-    # Convert to a simple list of usernames
-    usernames = [row[0] for row in list_users]
-    
-    conn.close()
+        # Convert to a simple list of usernames
+        #usernames = [row[0] for row in list_users]
+        other_users = [{'user_id': user[0], 'username': user[1], 'role': user[2].capitalize()} for user in list_users]
     
     items_list = [{'name': item[0], 'category': item[1], 'quantity': item[2], 'item_id': item[3]} for item in items]
     #logger.info(f"items_list: {items_list}")
-    return jsonify({'success': True, 'items': items_list, 'listName': list_name, 'modified': modified, 'otherUsers': usernames})
+    return jsonify({'success': True, 'userRole': user_role[0].capitalize(), 'items': items_list, 'listName': list_name, 'modified': modified, 'otherUsers': other_users})
 
 @app.route('/list/add_item', methods=['POST'])
 def add_item():
@@ -449,23 +461,50 @@ def delete_item():
     finally:
         conn.close()
 
-@app.route('/list/add_users_to_list', methods=['POST'])
-def add_users_to_list():
-    conn = get_db_conn()
+@app.route('/list/manage_users_of_list', methods=['POST'])
+def manage_users_of_list():
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'User not logged in.'}), 401
     
     data = request.get_json()
     list_id = data.get('currentListId')
-    other_users = data.get('otherUsers')
+    other_users = data.get('otherUsers', [])
     
-    logger.info(f"Adding {other_users} to list {list_id}")
-    
-    if not other_users:
-        return jsonify({'success': False, 'error': "No other users specified."})
+    logger.info(f"Updating list {list_id}'s users: {other_users}")
     
     with get_db_conn() as conn:
+        user_ids = [u.get('user_id') for u in other_users if u.get('user_id')]
+        placeholders = ','.join('?' for _ in user_ids) or 'NULL'  # avoid SQL syntax error if empty
+
+        conn.execute(
+            f'''
+            DELETE FROM grocery_list_users
+            WHERE list_id = ?
+            AND user_id != ?
+            AND user_id NOT IN ({placeholders})
+            ''',
+            [list_id, session['user_id'], *user_ids]
+        )
+        
+        
         for user in other_users:
-            logger.info(f"User: {user}")
-            conn.execute('INSERT INTO grocery_list_users (list_id, user_id) VALUES (?, ?)', (list_id, user.get('user_id')))
+            user_id = user.get('user_id')
+            role = user.get('role', 'viewer').lower()
+            
+            conn.execute(
+                '''
+                INSERT INTO grocery_list_users (list_id, user_id, role)
+                VALUES (?, ?, ?)
+                ON CONFLICT(list_id, user_id)
+                DO UPDATE SET role = excluded.role
+                ''',
+                (list_id, user_id, role)
+            )
+            
+            #logger.info(f"User: {user}")
+            # *** ADD CHECK TO SEE IF USER ALREADY PART OF LIST
+            
+            #conn.execute('INSERT OR IGNORE INTO grocery_list_users (list_id, user_id, role) VALUES (?, ?, ?)', (list_id, user.get('user_id'), user.get('role').lower()))
     
     return jsonify({'success': True, 'message': f'Successfully added users to list with id {list_id}'})
 
@@ -516,7 +555,7 @@ def get_user_suggestions():
     ).fetchall()
     conn.close()
     
-    users_list = [{'user_id': user[0], 'username': user[1]} for user in users]
+    users_list = [{'user_id': user[0], 'username': user[1], 'role': "Viewer"} for user in users]
     logger.info(f"User suggestions for query '{query}': {users_list}")
     return jsonify({'success': True, 'users': users_list})
 

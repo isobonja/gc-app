@@ -8,28 +8,19 @@ import {
   Button
 } from 'react-bootstrap';
 
-function ListTable({ items, onItemEdit, onItemDelete }) {
+import { capitalize } from '../util/utils';
+
+import { LIST_TABLE_HEADERS } from '../constants/constants';
+
+function ListTable({ items, onItemEdit, onItemDelete, disableButtons, onSort }) {
   // items is an array of objects, each object has keys: name, category, quantity, item_id
-
-  const headers = ["name", "category", "quantity"];
-
-  const capitalize = (s) => {
-    if (s === null || s === undefined) return '';
-    return String(s)
-      .split(/([ /])/g) // split by space or '/' but keep the delimiters
-      .map(part => {
-        // only capitalize non-delimiter parts
-        return part === ' ' || part === '/' ? part : part.charAt(0).toUpperCase() + part.slice(1);
-      })
-      .join('');
-  };
 
   return (
     <Table bordered hover>
       <thead>
         <tr>
-          {headers.map((key) => (
-            <th key={key}>{capitalize(key)}</th>
+          {LIST_TABLE_HEADERS.map((key) => (
+            <th key={key} onClick={() => onSort(key)} style={{ cursor: 'pointer' }}>{capitalize(key)}</th>
           ))}
           <th>Actions</th>
         </tr>
@@ -37,14 +28,24 @@ function ListTable({ items, onItemEdit, onItemDelete }) {
       <tbody>
         {items.map((item, idx) => (
           <tr key={idx}>
-            {headers.map((key) => (
+            {LIST_TABLE_HEADERS.map((key) => (
               <td key={key}>{capitalize(item[key])}</td>
             ))}
             <td>
-              <Button variant="warning" size="sm" onClick={() => onItemEdit(item)}>
+              <Button 
+                variant="warning" 
+                size="sm" 
+                onClick={() => onItemEdit(item)}
+                disabled={disableButtons}
+              >
                 Edit
               </Button>
-              <Button variant="danger" size="sm" onClick={() => onItemDelete(item)}>
+              <Button 
+                variant="danger" 
+                size="sm" 
+                onClick={() => onItemDelete(item)}
+                disabled={disableButtons}
+              >
                 Delete
               </Button>
             </td>

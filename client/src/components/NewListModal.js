@@ -25,7 +25,7 @@ function NewListModal({ show, handleClose, onFormSubmit }) {
     await onFormSubmit({ listName, otherUsers });
 
     setListName("");
-    setOtherUsers("");
+    setOtherUsers([]);
     setError(null);
     handleClose();
   };

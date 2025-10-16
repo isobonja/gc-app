@@ -49,7 +49,7 @@ export const fetchUserLists = async () => {
 
 // Fetch list data (items, list name, modified date)
 export const fetchListData = async (listId) => {
-  const res = await api.get("/list/get_items", { params: { list_id: listId } });
+  const res = await api.get("/list/get_list_data", { params: { list_id: listId } });
   return res.data;
 };
 
@@ -71,9 +71,9 @@ export const deleteItem = async (listId, itemId) => {
   return res.data;
 };
 
-// Add users to specified list
-export const addUsersToList = async ({ listId, otherUsers }) => {
-  const res = await api.post("/list/add_users_to_list", {currentListId: listId, otherUsers: otherUsers });
+// Manage users of specified list
+export const manageUsersOfList = async ({ listId, otherUsers }) => {
+  const res = await api.post("/list/manage_users_of_list", {currentListId: listId, otherUsers: otherUsers });
   return res.data;
 };
 

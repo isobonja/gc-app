@@ -11,8 +11,11 @@ import {
 
 import { useUserSuggestions } from '../hooks/useUserSuggestions';
 import { SUGGESTIONS_MAX_SHOW } from '../constants/constants';
+import UsersDisplay from './UsersDisplay';
 
-function UserSelector({ label, otherUsers, setOtherUsers }) {
+import { getLowerRoles, ROLE_NAMES } from '../constants/constants';
+
+function UserSelector({ label, currentUserRole = "Owner", otherUsers, setOtherUsers }) {
   const [username, setUsername] = useState("");
 
   const { 
@@ -25,77 +28,84 @@ function UserSelector({ label, otherUsers, setOtherUsers }) {
     setOtherUsers((prev) => prev.filter((u) => u !== usernameToRemove));
   };
 
+  const handleRoleChange = (userId, newRole) => {
+    setOtherUsers(prev =>
+      prev.map(user =>
+        user.user_id === userId ? { ...user, role: newRole } : user
+      )
+    );
+  };
+
   return (
     
-    <div className="position-relative w-100">
-      {/* Structure will be:
-      Label
-      Text Input field
-      User suggestion dropdown
-      Container listing users
-       - Each item in the list will contain the username and a dropdown selection for their role
-      */}
+    <div className="w-100">
       <Form.Group className="mb-3" controlId="formOtherUsers">
-        <Form.Label>{label}</Form.Label>
-        <Form.Control
-          type="text"
-          placeholder="Search username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-        />
+        <div className="position-relative">
+          <Form.Label>{label}</Form.Label>
+          <Form.Control
+            type="text"
+            placeholder="Search username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+          />
+
+          {/* Suggestions Dropdown */}
+          <Dropdown.Menu
+            show={userSuggestionsVisible && userSuggestions.length > 0}
+            style={{
+              position: "absolute",
+              zIndex: 1000,
+              width: "100%",
+              top: "100%",
+              marginTop: 0,
+            }}
+          >
+            {userSuggestions
+              .slice(0, SUGGESTIONS_MAX_SHOW)
+              .map((suggestion, idx) => (
+                <Dropdown.Item
+                  key={idx}
+                  onClick={() => handleUserSuggestionClick(suggestion)}
+                >
+                  <Container className="p-0 m-0">
+                    <Row>
+                      <Col>{suggestion.username}</Col>
+                    </Row>
+                  </Container>
+                </Dropdown.Item>
+              ))}
+          </Dropdown.Menu>
+        </div>
       </Form.Group>
 
-      {/* Suggestions Dropdown */}
-      <Dropdown.Menu
-        show={userSuggestionsVisible && userSuggestions.length > 0}
+      <Container 
+        className="border border-black pb-1" 
         style={{
-          position: "absolute",
-          zIndex: 1000,
-          width: "100%",
-          top: "100%",
-          marginTop: 0,
+          height: "200px",
+          overflowY: "auto",
         }}
       >
-        {userSuggestions
-          .slice(0, SUGGESTIONS_MAX_SHOW)
-          .map((suggestion, idx) => (
-            <Dropdown.Item
-              key={idx}
-              onClick={() => handleUserSuggestionClick(suggestion)}
-            >
-              <Container className="p-0 m-0">
-                <Row>
-                  <Col>{suggestion.username}</Col>
-                </Row>
-              </Container>
-            </Dropdown.Item>
-          ))}
-      </Dropdown.Menu>
 
-      {otherUsers.length > 0 && (
-        <div className="d-flex flex-wrap gap-2 mt-2">
-          {otherUsers.map((user, index) => (
-            <Badge
-              key={index}
-              pill
-              bg="secondary"
-              className="d-flex align-items-center"
-            >
-              {user.username}
-              <button
-                type="button"
-                className="btn-close btn-close-white btn-sm ms-2"
-                aria-label="Remove"
-                onClick={() => removeUser(user)}
-                style={{
-                  fontSize: "0.6rem",
-                  lineHeight: "1",
-                }}
-              ></button>
-            </Badge>
-          ))}
-        </div>
-      )}
+        {otherUsers.map((user) => {
+          const isPrivileged = currentUserRole === "Owner" ? false : ["Owner", "Admin"].includes(user.role);
+
+          const roleOptions = isPrivileged
+            ? ROLE_NAMES
+            : getLowerRoles(currentUserRole);
+
+          return (
+            <UsersDisplay
+              key={user.user_id}
+              user={user}
+              removeUser={removeUser}
+              preventRoleChanges={isPrivileged}
+              roleOptions={roleOptions}
+              onRoleChange={handleRoleChange}
+            />
+          );
+        })}
+
+      </Container>
     </div>
   );
 }

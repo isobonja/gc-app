@@ -10,10 +10,12 @@ import {
   Col, 
   Card,
   Badge,
-  Button
+  Button,
+  ButtonGroup
 } from 'react-bootstrap';
 
 import UserNavbar from '../components/UserNavbar';
+import DashboardListGrid from '../components/DashboardListGrid';
 import CenterSpinner from '../components/CenterSpinner';
 import NewListModal from '../components/NewListModal';
 
@@ -21,9 +23,9 @@ import { fetchUserLists,
   deleteList as apiDeleteList,
   createNewList 
 } from '../api/requests';
-
-import { formatListCardUserDisplay } from '../util/utils';
-
+import { DASHBOARD_TABLE_HEADERS } from '../constants/constants';
+import { convertUTCToLocal, sortArray } from '../util/utils';
+import DashboardListTable from '../components/DashboardListTable';
 
 function Dashboard() {
   const navigate = useNavigate();
@@ -41,23 +43,18 @@ function Dashboard() {
   const [showNewListModal, setShowNewListModal] = useState(false);
   const [reload, setReload] = useState(false);
 
+  const [listViewActive, setListViewActive] = useState(true);
+
   // On mount, fetch lists user has access to
   useEffect(() => {
     const getLists = async () => {
       try {
         const data = await fetchUserLists();
 
-        const processedLists = data.lists.map(l => {
-          let localDate = null;
-          if (l.updateDate) {
-            const utcDate = new Date(l.updateDate + " UTC");
-            localDate = utcDate.toLocaleString(undefined, {
-              dateStyle: "medium",
-              timeStyle: "short",
-            });
-          }
-          return { ...l, updateDate: localDate };
-        });
+        const processedLists = data.lists.map(l => ({
+          ...l,
+          last_updated: convertUTCToLocal(l.last_updated)
+        }));
 
         setLists(processedLists);
         console.log("Fetched user lists:", processedLists);
@@ -69,12 +66,12 @@ function Dashboard() {
     getLists();
   }, [reload]);
 
-  const handleListCardClick = (listId) => {
+  const handleListClick = (listId) => {
     console.log("Clicked list card with id:", listId);
     navigate(`/list/${listId}`);
   };
 
-  const handleListCardDelete = async (listId, name) => {
+  const handleListDelete = async (listId, name) => {
     console.log("Delete list with id:", listId);
     try {
       const data = await apiDeleteList(listId);
@@ -85,6 +82,25 @@ function Dashboard() {
       console.error("Error deleting list:", err);
     }
   };
+
+  const [sortConfig, setSortConfig] = useState({ key: null, ascending: true });
+
+  const handleSortLists = (sortBy) => {
+    console.log(`sortBy is ${sortBy}`);
+    setSortConfig((prev) => {
+      const ascending = prev.key === sortBy ? !prev.ascending : true;
+
+      return { key: sortBy, ascending };
+    });
+  };
+
+  useEffect(() => {
+    const sorted = DASHBOARD_TABLE_HEADERS.includes(sortConfig.key)
+      ? sortArray(lists, sortConfig.key, sortConfig.ascending) 
+      : lists;
+
+    setLists(sorted);
+  }, [sortConfig]);
 
   const handleShowNewListModal = () => setShowNewListModal(true);
   const handleCloseNewListModal = () => setShowNewListModal(false);
@@ -118,12 +134,19 @@ function Dashboard() {
       ) : (
         <>
           <Container fluid className="ps-3 pt-3 ">
-            <Row className="ps-3 align-items-center">
+            <Row className="px-3 align-items-center">
               <Col xs="auto">
                 <h1>Your Lists</h1>
               </Col>
               <Col>
                 <Button onClick={handleShowNewListModal}>Create New List</Button>
+              </Col>
+              <Col xs="auto">
+                {/* EVENTUALLY REPLACE TEXT WITH ICONS */}
+                <ButtonGroup className="gap-1">
+                  <Button onClick={() => setListViewActive(true)}>List</Button>
+                  <Button onClick={() => setListViewActive(false)}>Grid</Button>
+                </ButtonGroup>
               </Col>
             </Row>
             
@@ -135,46 +158,21 @@ function Dashboard() {
               fluid 
               className="m-3 p-3 w-auto border d-flex flex-column flex-fill"
             >
-              <Row className="g-4">
-                {lists.map((list) => (
-                  <Col key={list.id} xs={12} sm={6} md={4} lg={3}>
-                    <Card
-                      onClick={() => handleListCardClick(list.id)}
-                      className="h-100 bg-dark shadow-lg border-0 p-3 position-relative d-flex flex-column"
-                      role="button"
-                    >
-                      <div className="text-center mt-4 mb-1 flex-grow-1">
-                        <h2 className="mb-2">{list.name}</h2>
-                        <p className="mb-1">Last updated: {list.updateDate}</p>
-                        <small className="text-muted"><i>
-                          {list.otherUsers.length > 0 
-                            ? <>Shared with: {formatListCardUserDisplay(list.otherUsers)}</>
-                            : ""}
-                        </i></small>
-                      </div>
-                      <hr />
-                      <div className="mt-auto d-flex justify-content-between align-items-center">
-                        <Button 
-                          className="w-100" 
-                          variant="danger"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleListCardDelete(list.id, list.name);
-                          }}
-                        >
-                          Delete
-                        </Button>
-                        <Badge 
-                          bg={list.otherUsers.length > 0 ? "success" : "primary"}
-                          className="position-absolute top-0 start-0 m-2"
-                        >
-                          {list.otherUsers.length > 0 ? "Shared" : "Private"}
-                        </Badge>
-                      </div>
-                    </Card>
-                  </Col>
-                ))}
-              </Row>
+              {listViewActive ? (
+                <DashboardListTable
+                  lists={lists} 
+                  handleListClick={handleListClick}
+                  handleListDelete={handleListDelete}
+                  onSort={handleSortLists}
+                />
+              ) : (
+                <DashboardListGrid
+                  lists={lists} 
+                  handleListClick={handleListClick}
+                  handleListDelete={handleListDelete}
+                />
+              )}
+              
             </Container>
           )}
         </>

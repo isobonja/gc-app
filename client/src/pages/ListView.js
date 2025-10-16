@@ -22,7 +22,7 @@ import {
 import ListTable from '../components/ListTable';
 import UserNavbar from '../components/UserNavbar';
 import CenterSpinner from '../components/CenterSpinner';
-import AddUsersModal from '../components/AddUsersModal';
+import ManageUsersModal from '../components/ManageUsersModal';
 import { UserContext } from '../context/UserContext';
 import { useToasts } from '../context/ToastProvider';
 
@@ -33,14 +33,20 @@ import {
   editItem as apiEditItem,
   deleteItem as apiDeleteItem,
   getSession,
-  addUsersToList
+  manageUsersOfList
 } from '../api/requests';
 
 import { useItemSuggestions } from "../hooks/useItemSuggestions";
 
-import { categoryIdToName } from '../util/utils';
+import { categoryIdToName, convertUTCToLocal, sortArray } from '../util/utils';
 
-import { SUGGESTIONS_MAX_SHOW } from '../constants/constants';
+import { 
+  SUGGESTIONS_MAX_SHOW, 
+  isOwner,
+  canManageUsers,
+  canEdit,
+  canView,
+ } from '../constants/constants';
 
 
 const emptyItem = { name: "", category: "", quantity: 1, id: null };
@@ -50,6 +56,8 @@ function ListView() {
   const { listId } = useParams();
   /** State Variables **/
   const { user, setUser } = useContext(UserContext);
+  const [userRole, setUserRole] = useState("Viewer");
+
   const { addToast } = useToasts();
 
   // Page reload
@@ -67,7 +75,7 @@ function ListView() {
   const [itemsInList, setItemsInList] = useState([]);
   const [listName, setListName] = useState('');
   const [listModifiedDate, setListModifiedDate] = useState(null);
-  const [listOtherUsers, setListOtherUsers] = useState([]); // array of usernames
+  const [listOtherUsers, setListOtherUsers] = useState([]); // list of objects with keys 'user_id', 'username', 'role'
 
   // State for item to be added
   // Object with keys 'name', 'category', 'quantity', and 'id'
@@ -102,7 +110,7 @@ function ListView() {
   const [editItemShow, setEditItemShow] = useState(false);
   const [editItemError, setEditItemError] = useState('');
 
-  const [showAddUsersModal, setShowAddUsersModal] = useState(false);
+  const [showManageUsersModal, setShowManageUsersModal] = useState(false);
 
 
   // restore user from session on refresh
@@ -139,29 +147,20 @@ function ListView() {
       return;   // safe guard
     }
 
-    //console.log(`Current list ID: ${user.currentListId}`);
     console.log(`Current list ID: ${listId}`);
-    //fetchListData(user.currentListId)
+
     fetchListData(listId)
       .then(data => {
         setItemsInList(data.items || []);
         setListName(data.listName || '');
+        setUserRole(data.userRole || 'Viewer');
         
-        if (data.modified) {
-          const utcDate = new Date(data.modified + " UTC");
-          const localDate = utcDate.toLocaleString(undefined, {
-            dateStyle: "medium",
-            timeStyle: "short",
-          });
-          setListModifiedDate(localDate);
-        } else {
-          setListModifiedDate(null);
-        }
+        setListModifiedDate(convertUTCToLocal(data.modified));
 
         setListOtherUsers(data.otherUsers || []);
       })
       .catch(err => console.error(err));
-  }, [reload, user?.currentListId, listId]); // Run when component mounts or reload changes
+  }, [reload, listId]); // Run when component mounts or reload changes
 
   // Handle Add New Item form submission
   const handleAddItem = async (e) => {
@@ -312,13 +311,30 @@ function ListView() {
     }
   };
 
-  const handleShowAddUsersModal = () => setShowAddUsersModal(true);
-  const handleCloseAddUsersModal = () => setShowAddUsersModal(false);
+  const [sortConfig, setSortConfig] = useState({ key: null, ascending: true });
+
+  const handleSortItems = (sortBy) => {
+    setSortConfig((prev) => {
+      const ascending = prev.key === sortBy ? !prev.ascending : true;
+
+      return { key: sortBy, ascending };
+    });
+  };
+
+  useEffect(() => {
+    const sorted = sortArray(itemsInList, sortConfig.key, sortConfig.ascending);
+
+    setItemsInList(sorted);
+  }, [sortConfig]);
+
+  const handleShowManageUsersModal = () => setShowManageUsersModal(true);
+  const handleCloseManageUsersModal = () => setShowManageUsersModal(false);
   
   const handleAddUsersFormSubmit = async ({ otherUsers }) => {
     console.log("Adding users to list...");
+
     try {
-      const data = await addUsersToList({ listId, otherUsers });
+      const data = await manageUsersOfList({ listId, otherUsers });
       
       setReload((prev) => !prev);
       addToast("Users added to list!", "success");
@@ -343,37 +359,7 @@ function ListView() {
         ALSO LOOK INTO CUSTOM COLORS
       */}
       {/** Navigation Bar **/}
-      {/*<Navbar expand="lg" className="bg-primary ps-3">
-        <Container fluid>
-          <Navbar.Brand href="#home">
-            {user ? `Welcome, ${user.username}` : "Welcome"}
-          </Navbar.Brand>
-          <Navbar.Toggle aria-controls="dashboard-nav" />
-          <Navbar.Collapse id="dashboard-nav">
-            <Nav className="me-auto">
-              
-            </Nav>
-            <Nav>
-              <Button type="button" variant="outline-light" onClick={() => handleLogOut()}>
-                Log Out
-              </Button>
-            </Nav>
-          </Navbar.Collapse>
-        </Container>
-      </Navbar>*/}
       <UserNavbar username={user.username} />
-        
-        {/**<Container>
-          <Navbar.Brand href="#home">Grocery List App</Navbar.Brand>
-          <Navbar.Toggle aria-controls="basic-navbar-nav" />
-          <Navbar.Collapse id="basic-navbar-nav">
-            <Nav className="me-auto">
-              <Nav.Link href="#home">Home</Nav.Link>
-              <Nav.Link href="#link">Link</Nav.Link>
-            </Nav>
-          </Navbar.Collapse>
-        </Container>
-      </Navbar>*/}
 
       {/** Main Content **/}
       <Container fluid className="d-flex flex-column flex-fill">
@@ -399,9 +385,9 @@ function ListView() {
                 {listOtherUsers.length > 0 ? (
                   <>
                     <small className="text-muted me-1">Shared with:</small>
-                    {listOtherUsers.map((username, idx) => (
-                      <small key={idx} className="text-muted me-1">
-                        {username}
+                    {listOtherUsers.map((user, idx) => (
+                      <small key={user.user_id || idx} className="text-muted me-1">
+                        {user.username}
                         {idx < listOtherUsers.length - 1 ? ',' : ''}
                       </small>
                     ))}
@@ -411,14 +397,17 @@ function ListView() {
                 )}
               </div>
 
-              <Button 
-                variant="primary" 
-                size="sm"
-                className="ms-3"
-                onClick={handleShowAddUsersModal}
-              >
-                Add Users
-              </Button>
+              {canManageUsers(userRole) &&
+                <Button 
+                  variant="primary" 
+                  size="sm"
+                  className="ms-3"
+                  onClick={handleShowManageUsersModal}
+                >
+                  Add Users
+                </Button>
+              }
+              
             </div>
           </Col>
         </Row>
@@ -435,84 +424,92 @@ function ListView() {
               <ListTable 
                 items={itemsInList}
                 onItemEdit={handleShowEditItem}
-                onItemDelete={handleDeleteItem}
+                onItemDelete={handleDeleteItem} 
+                disableButtons={!canEdit(userRole)} 
+                onSort={handleSortItems}
               />
             )}
           </Col>
 
           {/** Add New Item Form **/}
           <Col className="border mx-3">
-            <Form className="p-3" onSubmit={handleAddItem}>
-              <div className="position-relative w-100">
-                {/* Item name */}
-                <Form.Group className="mb-3" controlId="formItemName">
-                  <Form.Label>Item Name:</Form.Label>
+            {canEdit(userRole) ? (
+              <Form className="p-3" onSubmit={handleAddItem}>
+                <div className="position-relative w-100">
+                  {/* Item name */}
+                  <Form.Group className="mb-3" controlId="formItemName">
+                    <Form.Label>Item Name:</Form.Label>
+                    <Form.Control 
+                      type="text" 
+                      placeholder="Enter item name" 
+                      value={addItem.name} 
+                      onChange={e => setAddItem(prev => ({...prev, name: e.target.value}))} 
+                    />
+                  </Form.Group>
+
+                  {/* Suggestions Dropdown */}
+                  <Dropdown.Menu
+                    show={addItemSuggestionsVisible && addItemSuggestions.length > 0}
+                    style={{ position: 'absolute', zIndex: 1000, width: '100%', top: '100%', marginTop: 0 }}
+                  >
+                    {addItemSuggestions.slice(0, SUGGESTIONS_MAX_SHOW).map((suggestion, idx) => (
+                      <Dropdown.Item key={idx} onClick={() => handleSuggestionClick(suggestion)}> {/*Suggestion here is object with keys {item_id, name, category_id}*/}
+                        <Container className="p-0 m-0">
+                          <Row>
+                            <Col>{suggestion.name}</Col>
+                            <Col className="text-end text-muted">
+                              <small><i>{categoryIdToName(suggestion.category_id, categories)}</i></small>
+                            </Col>
+                          </Row>
+                        </Container>
+                      </Dropdown.Item>
+                    ))}
+                  </Dropdown.Menu>
+                </div>
+
+                {/* Category */}
+                <Form.Group className="mb-3" controlId="formItemCategory">
+                  <Form.Label>Category:</Form.Label>
+                  <Form.Select 
+                    value={addItem.category} 
+                    onChange={e => setAddItem(prev => ({...prev, category: e.target.value}))}
+                  >
+                    <option value="">Select category</option>
+                    {categories.map((cat, idx) => (
+                      <option key={cat.category_id || idx} value={cat.name}>{cat.name}</option>
+                    ))}
+                  </Form.Select>
+                </Form.Group>
+
+                {/* Quantity */}
+                <Form.Group className="mb-3" controlId="formItemQuantity">
+                  <Form.Label>Quantity:</Form.Label>
                   <Form.Control 
-                    type="text" 
-                    placeholder="Enter item name" 
-                    value={addItem.name} 
-                    onChange={e => setAddItem(prev => ({...prev, name: e.target.value}))} 
+                    type="number" 
+                    placeholder="Enter quantity" 
+                    value={addItem.quantity} 
+                    onChange={e => setAddItem(prev => ({...prev, quantity: e.target.value}))}
                   />
                 </Form.Group>
 
-                {/* Suggestions Dropdown */}
-                <Dropdown.Menu
-                  show={addItemSuggestionsVisible && addItemSuggestions.length > 0}
-                  style={{ position: 'absolute', zIndex: 1000, width: '100%', top: '100%', marginTop: 0 }}
+                {/* Error Message */}
+                {addItemError && 
+                  <Form.Text className="text-danger">{addItemError}</Form.Text>
+                }
+                <Button 
+                  variant='primary' 
+                  type='submit' 
+                  className="w-100 mt-3"
+                  disabled={!addItem.name.trim() || !addItem.category}
                 >
-                  {addItemSuggestions.slice(0, SUGGESTIONS_MAX_SHOW).map((suggestion, idx) => (
-                    <Dropdown.Item key={idx} onClick={() => handleSuggestionClick(suggestion)}> {/*Suggestion here is object with keys {item_id, name, category_id}*/}
-                      <Container className="p-0 m-0">
-                        <Row>
-                          <Col>{suggestion.name}</Col>
-                          <Col className="text-end text-muted">
-                            <small><i>{categoryIdToName(suggestion.category_id, categories)}</i></small>
-                          </Col>
-                        </Row>
-                      </Container>
-                    </Dropdown.Item>
-                  ))}
-                </Dropdown.Menu>
-              </div>
-
-              {/* Category */}
-              <Form.Group className="mb-3" controlId="formItemCategory">
-                <Form.Label>Category:</Form.Label>
-                <Form.Select 
-                  value={addItem.category} 
-                  onChange={e => setAddItem(prev => ({...prev, category: e.target.value}))}
-                >
-                  <option value="">Select category</option>
-                  {categories.map((cat, idx) => (
-                    <option key={cat.category_id || idx} value={cat.name}>{cat.name}</option>
-                  ))}
-                </Form.Select>
-              </Form.Group>
-
-              {/* Quantity */}
-              <Form.Group className="mb-3" controlId="formItemQuantity">
-                <Form.Label>Quantity:</Form.Label>
-                <Form.Control 
-                  type="number" 
-                  placeholder="Enter quantity" 
-                  value={addItem.quantity} 
-                  onChange={e => setAddItem(prev => ({...prev, quantity: e.target.value}))}
-                />
-              </Form.Group>
-
-              {/* Error Message */}
-              {addItemError && 
-                <Form.Text className="text-danger">{addItemError}</Form.Text>
-              }
-              <Button 
-                variant='primary' 
-                type='submit' 
-                className="w-100 mt-3"
-                disabled={!addItem.name.trim() || !addItem.category}
-              >
-                Add New Item to Current List
-              </Button>
-            </Form>
+                  Add New Item to Current List
+                </Button>
+              </Form>
+              ) : (
+                <p>Viewer Mode</p>
+              )
+            }
+            
           </Col>
         </Row>
 
@@ -605,11 +602,14 @@ function ListView() {
         </Modal>
 
         {/** Add Users Modal **/}
-        <AddUsersModal
-          show={showAddUsersModal}
-          handleClose={handleCloseAddUsersModal}
+        <ManageUsersModal
+          show={showManageUsersModal}
+          handleClose={handleCloseManageUsersModal}
           onFormSubmit={handleAddUsersFormSubmit}
-          listName={listName}
+          listName={listName} 
+          currentUserRole={userRole}
+          otherUsers={listOtherUsers} 
+          setOtherUsers={setListOtherUsers}
         />  
 
       </Container>
