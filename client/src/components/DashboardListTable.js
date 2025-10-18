@@ -14,7 +14,7 @@ import { capitalize, convertUTCToLocal, formatListUserDisplay } from "../util/ut
 
 import { DASHBOARD_TABLE_HEADERS, isOwner } from "../constants/constants";
 
-function DashboardListTable({ lists, handleListClick, handleListDelete, onSort}) {
+function DashboardListTable({ lists, handleListClick, handleListEdit, handleListDelete, onSort}) {
 
   return (
     <Table bordered hover style={{ overflow: 'visible' }}>
@@ -98,7 +98,10 @@ function DashboardListTable({ lists, handleListClick, handleListDelete, onSort})
                   variant="warning"
                   size="sm"
                   className="flex-fill"
-                  onClick={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleListEdit(list);
+                  }}
                   disabled={!isOwner(list.role)}
                 >
                   Edit

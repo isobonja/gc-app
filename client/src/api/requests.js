@@ -35,6 +35,12 @@ export const createNewList = async ({ listName, otherUsers }) => {
   return res.data;
 };
 
+// Edit list
+export const editList = async({ listId, listName, otherUsers }) => {
+  const res = await api.put("/dashboard/edit_list", { listId, listName, otherUsers });
+  return res.data;
+};
+
 // Delete list
 export const deleteList = async (listId) => {
   const res = await api.post("/dashboard/delete_list", { listId });

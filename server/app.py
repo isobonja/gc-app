@@ -231,8 +231,15 @@ def get_user_lists():
         other_users_map = {}
         
         placeholders = ', '.join(['?'] * len(list_ids))
+        #other_users_query = f'''
+        #    SELECT glu.list_id, u.username
+        #    FROM grocery_list_users glu
+        #   JOIN users u ON glu.user_id = u.user_id
+        #    WHERE glu.list_id IN ({placeholders})
+        #      AND glu.user_id != ?
+        #'''
         other_users_query = f'''
-            SELECT glu.list_id, u.username
+            SELECT glu.list_id, glu.user_id, u.username, glu.role
             FROM grocery_list_users glu
             JOIN users u ON glu.user_id = u.user_id
             WHERE glu.list_id IN ({placeholders})
@@ -240,10 +247,11 @@ def get_user_lists():
         '''
         other_users_rows = conn.execute(other_users_query, (*list_ids, user_id)).fetchall()
 
-        for list_id, username in other_users_rows:
+        for list_id, user_id, username, role in other_users_rows:
+            user_data = {'user_id': user_id, 'username': username, 'role': role.capitalize()}
             if list_id not in other_users_map:
                 other_users_map[list_id] = []
-            other_users_map[list_id].append(username)
+            other_users_map[list_id].append(user_data)
         
     conn.close()
     
@@ -312,6 +320,59 @@ def get_list_data():
     items_list = [{'name': item[0], 'category': item[1], 'quantity': item[2], 'item_id': item[3]} for item in items]
     #logger.info(f"items_list: {items_list}")
     return jsonify({'success': True, 'userRole': user_role[0].capitalize(), 'items': items_list, 'listName': list_name, 'modified': modified, 'otherUsers': other_users})
+
+@app.route('/dashboard/edit_list', methods=['PUT'])
+def edit_list():
+    logger.info("Edit list endpoint")
+    conn = get_db_conn()
+    
+    data = request.get_json()
+    list_id = data.get('listId')
+    list_name = data.get('listName')
+    list_other_users = data.get('otherUsers', [])
+    
+    logger.info(f'''
+        list_id: {list_id}\t
+        list_name: {list_name}\t 
+        list_other_users: {list_other_users}
+                ''')
+    
+    if not list_id or not list_name:
+        return jsonify({'success': False, 'error': 'Missing list ID or name'})
+    
+    # access_check = cur.execute('''
+    #     SELECT role FROM grocery_list_users 
+    #     WHERE list_id = ? AND user_id = ?
+    # ''', (list_id, user_id)).fetchone()
+
+    # if not access_check:
+    #     conn.close()
+    #     return jsonify({'success': False, 'error': 'Access denied: not a member of this list'}), 403
+
+    # role = access_check['role'].lower()
+    # if role not in ('owner', 'admin'):
+    #     conn.close()
+    #     return jsonify({'success': False, 'error': 'Permission denied: must be owner or admin'}), 403
+    
+    conn.execute('''
+        UPDATE grocery_lists 
+        SET name = ?, update_date = CURRENT_TIMESTAMP
+        WHERE list_id = ?
+    ''', (list_name, list_id))
+    
+    conn.execute('DELETE FROM grocery_list_users WHERE list_id = ? AND user_id != ?', (list_id, session.get('user_id')))
+    
+    for user in list_other_users:
+        conn.execute('INSERT INTO grocery_list_users (list_id, user_id, role) VALUES (?, ?, ?)',
+                    (list_id, user.get('user_id'), user.get('role').lower()))
+    
+    conn.commit()
+    conn.close()
+    
+    return jsonify({'success': True, 'message': 'Successfully updated list!'})
+    
+    
+
 
 @app.route('/list/add_item', methods=['POST'])
 def add_item():

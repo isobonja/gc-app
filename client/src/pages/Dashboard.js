@@ -11,20 +11,23 @@ import {
   Card,
   Badge,
   Button,
-  ButtonGroup
+  ButtonGroup,
+  Dropdown,
+  Form
 } from 'react-bootstrap';
 
 import UserNavbar from '../components/UserNavbar';
 import DashboardListGrid from '../components/DashboardListGrid';
 import CenterSpinner from '../components/CenterSpinner';
-import NewListModal from '../components/NewListModal';
+import ManageListModal from '../components/ManageListModal';
 
 import { fetchUserLists,
   deleteList as apiDeleteList,
-  createNewList 
+  createNewList,
+  editList as apiEditList
 } from '../api/requests';
 import { DASHBOARD_TABLE_HEADERS } from '../constants/constants';
-import { convertUTCToLocal, sortArray } from '../util/utils';
+import { capitalize, convertUTCToLocal, sortArray } from '../util/utils';
 import DashboardListTable from '../components/DashboardListTable';
 
 function Dashboard() {
@@ -36,11 +39,16 @@ function Dashboard() {
   const { user, setUser } = useContext(UserContext);
 
   // List of grocery lists user has access to
+  // Array of objects with keys 'id', 'name', 'type', 'role', 'last_updated', 'other_users'
+  //   'other_users' is array of objects with keys 'user_id', 'username', 'role'
   const [lists, setLists] = useState([]);
+  const [displayLists, setDisplayLists] = useState([]);
   const [gotLists, setGotLists] = useState(false);
   //const listsRef = useRef(lists);
 
   const [showNewListModal, setShowNewListModal] = useState(false);
+  const [showEditListModal, setShowEditListModal] = useState(false);
+  const [editListModalList, setEditListModalList] = useState(null);
   const [reload, setReload] = useState(false);
 
   const [listViewActive, setListViewActive] = useState(true);
@@ -83,29 +91,35 @@ function Dashboard() {
     }
   };
 
-  const [sortConfig, setSortConfig] = useState({ key: null, ascending: true });
+  const [sortConfig, setSortConfig] = useState({ key: 'last updated', ascending: false });
 
-  const handleSortLists = (sortBy) => {
+  const handleSortLists = (sortBy = null, ascending = null) => {
     console.log(`sortBy is ${sortBy}`);
-    setSortConfig((prev) => {
-      const ascending = prev.key === sortBy ? !prev.ascending : true;
+    if (sortBy === null && ascending !== null) {
+      setSortConfig(prev => ({...prev, ascending: !prev.ascending}));
+    } else if (sortBy !== null && ascending == null) {
+      setSortConfig((prev) => {
+        const ascending = prev.key === sortBy ? !prev.ascending : true;
 
-      return { key: sortBy, ascending };
-    });
+        return { key: sortBy, ascending };
+      });
+    }
   };
 
   useEffect(() => {
+    if (!lists.length) return;
+
     const sorted = DASHBOARD_TABLE_HEADERS.includes(sortConfig.key)
       ? sortArray(lists, sortConfig.key, sortConfig.ascending) 
       : lists;
 
-    setLists(sorted);
-  }, [sortConfig]);
+    setDisplayLists(sorted);
+  }, [sortConfig, lists]);
 
   const handleShowNewListModal = () => setShowNewListModal(true);
   const handleCloseNewListModal = () => setShowNewListModal(false);
   
-  const handleNewListFormSubmit = async ({ listName, otherUsers }) => {
+  const handleNewListFormSubmit = async ({ listId, listName, otherUsers }) => {
     try {
       const data = await createNewList({ listName, otherUsers });
       
@@ -118,6 +132,26 @@ function Dashboard() {
       addToast(`List "${listName}" created`, "success");
     } catch (err) {
       console.error("Error creating new list:", err);
+    }
+  };
+
+  const handleShowEditListModal = (list) => {
+    setEditListModalList(list);
+    setShowEditListModal(true);
+  };
+
+  const handleCloseEditListModal = () => setShowEditListModal(false);
+
+  const handleEditListFormSubmit = async ({ listId, listName, otherUsers }) => {
+    console.log("Edit Item Submit");
+    console.log(`New list name: ${listName}`);
+    try {
+      const data = await apiEditList({ listId, listName, otherUsers });
+
+      setReload((prev) => !prev);
+      addToast(`List "${listName}" edited successfully!`, "success");
+    } catch (err) {
+      console.error("Error editing list:", err);
     }
   };
 
@@ -141,6 +175,33 @@ function Dashboard() {
               <Col>
                 <Button onClick={handleShowNewListModal}>Create New List</Button>
               </Col>
+              {!listViewActive && 
+                <>
+                  <Col xs="auto" className="ps-0 pe-2">
+                    Sort By: 
+                  </Col>
+                  <Col xs="auto" className="ps-0 pe-2">
+                    <Form.Select
+                      value={sortConfig.key} 
+                      onChange={e => handleSortLists(e.target.value)}
+                    >
+                      {DASHBOARD_TABLE_HEADERS.map((sortBy, idx) => (
+                        <option key={idx} value={sortBy}>{capitalize(sortBy)}</option>
+                      ))}
+                    </Form.Select>
+                  </Col>
+                  <Col xs="auto" className="p-0">
+                    <Form.Select
+                      value={sortConfig.ascending ? "true" : "false"} 
+                      onChange={e => handleSortLists(null, e.target.value)}
+                    >
+                      <option value={true}>Ascending</option>
+                      <option value={false}>Descending</option>
+                    </Form.Select>
+                  </Col>
+                </>
+              }
+              
               <Col xs="auto">
                 {/* EVENTUALLY REPLACE TEXT WITH ICONS */}
                 <ButtonGroup className="gap-1">
@@ -151,7 +212,7 @@ function Dashboard() {
             </Row>
             
           </Container>
-          {lists.length === 0 ? (
+          {displayLists.length === 0 ? (
             <p className="text-center mt-4">You have no lists. Create one!</p>
           ) : (
             <Container 
@@ -160,15 +221,17 @@ function Dashboard() {
             >
               {listViewActive ? (
                 <DashboardListTable
-                  lists={lists} 
+                  lists={displayLists} 
                   handleListClick={handleListClick}
+                  handleListEdit={handleShowEditListModal} 
                   handleListDelete={handleListDelete}
                   onSort={handleSortLists}
                 />
               ) : (
                 <DashboardListGrid
-                  lists={lists} 
+                  lists={displayLists} 
                   handleListClick={handleListClick}
+                  handleListEdit={handleShowEditListModal}
                   handleListDelete={handleListDelete}
                 />
               )}
@@ -179,10 +242,22 @@ function Dashboard() {
       )}
 
       {/* New List Modal */}
-      <NewListModal
+      <ManageListModal
         show={showNewListModal}
-        handleClose={handleCloseNewListModal}
+        handleClose={handleCloseNewListModal} 
+        title={"Create New List"} 
+        submitButtonText={"Create List"} 
         onFormSubmit={handleNewListFormSubmit}
+      />
+
+      {/* Edit List Modal */}
+      <ManageListModal
+        show={showEditListModal}
+        handleClose={handleCloseEditListModal}
+        title={"Edit List"} 
+        submitButtonText={"Update List"} 
+        onFormSubmit={handleEditListFormSubmit} 
+        list={editListModalList}
       />
     </div>
   );

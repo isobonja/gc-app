@@ -6,9 +6,15 @@ export const categoryIdToName = (id, categories) => {
 export const formatListUserDisplay = (otherUsers) => {
   /* otherUsers is an array of usernames */
   if (otherUsers.length === 0) return '';
-  if (otherUsers.length === 1) return otherUsers[0];
-  if (otherUsers.length === 2) return `${otherUsers[0]} and ${otherUsers[1]}`;
-  return `${otherUsers[0]}, ${otherUsers[1]} and ${otherUsers.length - 2} others`;
+  if (typeof otherUsers[0] === "string") {
+    if (otherUsers.length === 1) return otherUsers[0];
+    if (otherUsers.length === 2) return `${otherUsers[0]} and ${otherUsers[1]}`;
+    return `${otherUsers[0]}, ${otherUsers[1]} and ${otherUsers.length - 2} others`;
+  } else {
+    if (otherUsers.length === 1) return otherUsers[0].username;
+    if (otherUsers.length === 2) return `${otherUsers[0].username} and ${otherUsers[1].username}`;
+    return `${otherUsers[0].username}, ${otherUsers[1].username} and ${otherUsers.length - 2} others`;
+  }
 };
 
 export const capitalize = (s) => {
@@ -23,7 +29,7 @@ export const capitalize = (s) => {
 };
 
 export const sortArray = (array, key, ascending = true) => {
-  console.log(`Array: ${JSON.stringify(array)}\nKey: ${key}`);
+  //console.log(`Array: ${JSON.stringify(array)}\nKey: ${key}`);
   if (!key) return array;
   const rkey = key.replace(/ /g, "_");
 

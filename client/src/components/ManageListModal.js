@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { 
   Modal, 
   Button, 
@@ -7,10 +7,23 @@ import {
 
 import UserSelector from "./UserSelector";
 
-function NewListModal({ show, handleClose, onFormSubmit }) {
+function ManageListModal({ show, handleClose, title, submitButtonText, onFormSubmit, list=null }) {
   const [listName, setListName] = useState("");
   const [otherUsers, setOtherUsers] = useState([]);
   const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (list !== null && show) {
+      setListName(list.name);
+      setOtherUsers(list.other_users);
+    }
+
+    if (!show) {
+      setListName("");
+      setOtherUsers([]);
+      setError(null);
+    }
+  }, [show, list]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -22,7 +35,11 @@ function NewListModal({ show, handleClose, onFormSubmit }) {
 
     setError(null);
 
-    await onFormSubmit({ listName, otherUsers });
+    const listId = list?.id;
+
+    console.log(`listId: ${listId}\tlistName: ${listName}\totherUsers: ${otherUsers}`);
+
+    await onFormSubmit({ listId, listName, otherUsers });
 
     setListName("");
     setOtherUsers([]);
@@ -33,11 +50,11 @@ function NewListModal({ show, handleClose, onFormSubmit }) {
   return (
     <Modal show={show} onHide={handleClose} centered>
       <Modal.Header closeButton>
-        <Modal.Title>Create New List</Modal.Title>
+        <Modal.Title>{title || "Manage List"}</Modal.Title>
       </Modal.Header>
 
       <Modal.Body>
-        <Form className="p-3" id="newListForm" onSubmit={handleSubmit}>
+        <Form className="p-3" id="manageListForm" onSubmit={handleSubmit}>
           <Form.Group className="mb-3" controlId="formListName">
             <Form.Label>List Name</Form.Label>
             <Form.Control
@@ -50,7 +67,7 @@ function NewListModal({ show, handleClose, onFormSubmit }) {
           </Form.Group>
 
           <UserSelector 
-            label="Add users:"
+            label="Select other users:"
             otherUsers={otherUsers}
             setOtherUsers={setOtherUsers}
           />
@@ -63,12 +80,12 @@ function NewListModal({ show, handleClose, onFormSubmit }) {
         <Button variant="secondary" onClick={handleClose}>
           Cancel
         </Button>
-        <Button variant="primary" type="submit" form="newListForm">
-          Create List
+        <Button variant="primary" type="submit" form="manageListForm">
+          {submitButtonText || "Submit"}
         </Button>
       </Modal.Footer>
     </Modal>
   );
 }
 
-export default NewListModal;
+export default ManageListModal;

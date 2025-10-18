@@ -12,7 +12,14 @@ import { formatListUserDisplay } from '../util/utils';
 
 import { isOwner } from '../constants/constants';
 
-function DashboardListGrid({ lists, handleListClick, handleListDelete, onSort }) {
+function DashboardListGrid({ lists, handleListClick, handleListEdit, handleListDelete, onSort }) {
+
+  /* ADD EDIT BUTTONS */
+
+
+
+
+
 
   return (
     <Row className="g-4">
@@ -33,9 +40,20 @@ function DashboardListGrid({ lists, handleListClick, handleListDelete, onSort })
               </i></small>
             </div>
             <hr />
-            <div className="mt-auto d-flex justify-content-between align-items-center">
+            <div className="mt-auto d-flex flex-row gap-2 align-items-center">
+              <Button
+                className="w-50" 
+                variant="warning" 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleListEdit(list);
+                }}
+                disabled={!isOwner(list.role)}
+              >
+                Edit
+              </Button>
               <Button 
-                className="w-100" 
+                className="w-50" 
                 variant="danger"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -45,13 +63,13 @@ function DashboardListGrid({ lists, handleListClick, handleListDelete, onSort })
               >
                 Delete
               </Button>
-              <Badge 
-                bg={list.other_users.length > 0 ? "success" : "primary"}
-                className="position-absolute top-0 start-0 m-2"
-              >
-                {list.other_users.length > 0 ? "Shared" : "Private"}
-              </Badge>
             </div>
+            <Badge 
+              bg={list.other_users.length > 0 ? "success" : "primary"}
+              className="position-absolute top-0 start-0 m-2"
+            >
+              {list.other_users.length > 0 ? "Shared" : "Private"}
+            </Badge>
           </Card>
         </Col>
       ))}
