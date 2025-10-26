@@ -109,6 +109,7 @@ function RegisterPage() {
           }
           <Button variant='primary' type='submit' className="w-100 mt-3">Create Account</Button>
         </Form>
+        <Button variant='secondary' className="mt-3 w-100" onClick={() => navigate('/')}>Back to Login</Button>
       </Container>
     </div>
   );

@@ -10,6 +10,7 @@
     "axios": "^1.9.0",
     "boostrap": "^2.0.0",
     "bootstrap": "^5.3.6",
+    "bootstrap-icons": "^1.13.1",
     "react": "^19.1.0",
     "react-bootstrap": "^2.10.10",
     "react-dom": "^19.1.0",
@@ -29,7 +30,10 @@
       "react-app/jest"
     ],
     "rules": {
-      "semi": ["error", "always"]
+      "semi": [
+        "error",
+        "always"
+      ]
     }
   },
   "browserslist": {

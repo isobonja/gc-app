@@ -382,7 +382,8 @@ function ListView() {
           <Col xs="auto">
             <div className="d-flex align-items-center">
               <div className="d-flex align-items-center flex-wrap">
-                {listOtherUsers.length > 0 ? (
+                {/* NEED TO FIGURE OUT HOW TO PREEVENT THIS LABEL FROM CHANGING WHEN MODAL OPEN */}
+                {(listOtherUsers.length > 0) ? (
                   <>
                     <small className="text-muted me-1">Shared with:</small>
                     {listOtherUsers.map((user, idx) => (

@@ -24,6 +24,7 @@ function UsersDisplay({ user, removeUser, preventRoleChanges, roleOptions, onRol
             fontSize: "0.6rem",
             lineHeight: "1",
           }}
+          disabled={preventRoleChanges}
         ></button>
       </Col>
       <Col className="p-0 fw-bold">

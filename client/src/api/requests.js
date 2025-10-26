@@ -77,9 +77,33 @@ export const deleteItem = async (listId, itemId) => {
   return res.data;
 };
 
+// Add user to list
+export const addUserToList = async ({ listId, username }) => {
+  const res = await api.post("/list/add_user_to_list", { currentListId: listId, username });
+  return res.data;
+};
+
 // Manage users of specified list
 export const manageUsersOfList = async ({ listId, otherUsers }) => {
   const res = await api.post("/list/manage_users_of_list", {currentListId: listId, otherUsers: otherUsers });
+  return res.data;
+};
+
+// Retrieve user's notifications
+export const getNotifications = async() => {
+  const res = await api.get("/get_notifications");
+  return res.data;
+};
+
+// Mark notifications as read
+export const markNotificationsAsRead = async (notificationIds) => {
+  const res = await api.put("/mark_notifications_as_read", { notificationIds });
+  return res.data;
+};
+
+// Delete notifications
+export const deleteNotifications = async (notificationIds) => {
+  const res = await api.post("/delete_notifications", { notificationIds });
   return res.data;
 };
 

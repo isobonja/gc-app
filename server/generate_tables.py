@@ -46,8 +46,8 @@ CREATE TABLE IF NOT EXISTS grocery_list_users (
     user_id INTEGER,
     role TEXT NOT NULL CHECK (role IN ('owner', 'admin', 'editor', 'viewer', 'temporary')) DEFAULT 'viewer',
     PRIMARY KEY (list_id, user_id),
-    FOREIGN KEY (list_id) REFERENCES grocery_lists (list_id),
-    FOREIGN KEY (user_id) REFERENCES users (user_id)
+    FOREIGN KEY (list_id) REFERENCES grocery_lists (list_id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE
 )
 ''')
 
@@ -57,8 +57,27 @@ CREATE TABLE IF NOT EXISTS grocery_list_items (
     item_id INTEGER,
     quantity INTEGER NOT NULL,
     PRIMARY KEY (list_id, item_id),
-    FOREIGN KEY (list_id) REFERENCES grocery_lists (list_id),
-    FOREIGN KEY (item_id) REFERENCES items (item_id)
+    FOREIGN KEY (list_id) REFERENCES grocery_lists (list_id) ON DELETE CASCADE,
+    FOREIGN KEY (item_id) REFERENCES items (item_id) ON DELETE CASCADE
+)
+''')
+
+cursor.execute('''
+CREATE TABLE notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    icon TEXT CHECK(icon IN ('none', 'invite', 'edit', 'delete')) DEFAULT 'none',
+    message TEXT NOT NULL,
+    actionable BOOLEAN NOT NULL DEFAULT 0,
+    action_type TEXT CHECK(action_type IN ('join_list_request') OR action_type IS NULL),
+    requested_list_id INTEGER,
+    unread BOOLEAN NOT NULL DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    read_at TIMESTAMP DEFAULT NULL,
+    data JSON DEFAULT NULL,
+
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (requested_list_id) REFERENCES grocery_lists(list_id) ON DELETE CASCADE
 )
 ''')
 
