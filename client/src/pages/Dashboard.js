@@ -161,7 +161,7 @@ function Dashboard() {
   }
 
   return (
-    <div data-bs-theme="dark" className="d-flex flex-column min-vh-100">
+    <div className="d-flex flex-column min-vh-100">
       <UserNavbar username={user ? user.username : null} />
       {!gotLists ? (
         <CenterSpinner />

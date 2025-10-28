@@ -7,21 +7,24 @@ import Dashboard from './pages/Dashboard';
 import ListView from './pages/ListView';
 import { UserProvider } from "./context/UserContext";
 import { ToastProvider } from "./context/ToastProvider";
+import { ThemeProvider } from './context/ThemeContext';
 
 function App() {
   return (
-    <UserProvider>
-      <ToastProvider>
-        <Router>
-          <Routes>
-            <Route path="/" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/list/:listId" element={<ListView />} />
-          </Routes>
-        </Router>
-      </ToastProvider>
-    </UserProvider>
+    <ThemeProvider>
+      <UserProvider>
+        <ToastProvider>
+          <Router>
+            <Routes>
+              <Route path="/" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/list/:listId" element={<ListView />} />
+            </Routes>
+          </Router>
+        </ToastProvider>
+      </UserProvider>
+    </ThemeProvider>
   );
 }
 

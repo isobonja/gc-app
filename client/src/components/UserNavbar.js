@@ -16,8 +16,11 @@ import {
 import Notification from './Notification';
 import { getNotifications, addUserToList, deleteNotifications, markNotificationsAsRead } from '../api/requests';
 import { useToasts } from '../context/ToastProvider';
+import { useTheme } from '../context/ThemeContext';
 
 function UserNavbar({ username }) {
+  const { theme, toggleTheme } = useTheme();
+
   // Each notification is a dict with keys: id, icon, message, actionable, action_type, requested_list_id, unread, created_at, data
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -115,23 +118,12 @@ function UserNavbar({ username }) {
       console.error("Error deleting notification:", err);
     }
   };
-
-  /*
-  const totalNotificationPages = Math.ceil(notifications.length / NOTIFICATIONS_PER_PAGE);
-
-  const paginatedNotifications = notifications.slice(
-    (currentNotificationPage - 1) * NOTIFICATIONS_PER_PAGE,
-    currentNotificationPage * NOTIFICATIONS_PER_PAGE
-  );
-
-  */
-
   
 
   return (
     <Navbar expand="lg" className="bg-primary ps-3">
       <Container fluid>
-        <Navbar.Brand href="#home">
+        <Navbar.Brand href="#home" className="text-light">
           {username ? `Welcome, ${username}` : "Welcome"}
         </Navbar.Brand>
         <Navbar.Toggle aria-controls="dashboard-nav" />
@@ -226,14 +218,6 @@ function UserNavbar({ username }) {
                                 console.log("User added to list response:", response);
                                 addToast("Successfully joined the list!", "success");
                                 // Remove notification from list
-                                /// *** IMPLEMENT ***
-                                /*deleteNotifications([n.id])
-                                  .then(res => {
-                                    console.log("Notification deleted:", res);
-                                  })
-                                  .catch(err => {
-                                    console.error("Error deleting notification:", err);
-                                  });*/
                                 handleNotificationDelete(n);
                               })
                               .catch(error => {
@@ -248,14 +232,6 @@ function UserNavbar({ username }) {
                           console.log("Dismissed action for notification", n.id);
                           // Remove notification from list
                           handleNotificationDelete(n);
-                          /*deleteNotifications([n.id])
-                            .then(res => {
-                              console.log("Notification deleted:", res);
-                            })
-                            .catch(err => {
-                              console.error("Error deleting notification:", err);
-                            });
-                          setRefetch(!refetch);*/
                         }} 
                         onDelete={(e) => {
                           e.stopPropagation();
@@ -304,9 +280,52 @@ function UserNavbar({ username }) {
           </Nav>
           
           <Nav>
-            <Button type="button" variant="outline-light" onClick={logout}>
+            {/*<Button type="button" variant="outline-light" onClick={logout}>
               Log Out
-            </Button>
+            </Button>*/}
+            <Dropdown align="end">
+              <Dropdown.Toggle
+                id="settings-dropdown"
+                variant="link"
+                className="p-0 border-0 position-relative text-decoration-none"
+              >
+                <i className="bi bi-gear-fill text-light fs-4 me-2"></i>
+              </Dropdown.Toggle>
+
+              <Dropdown.Menu className="mt-2">
+                {/* Theme Toggle */}
+                <Dropdown.Item
+                  onClick={toggleTheme}
+                  className="d-flex justify-content-between align-items-center"
+                >
+                  <span>Toggle Theme</span>
+                  {theme === "dark" ? (
+                    <i className="bi bi-moon-fill"></i>
+                  ) : (
+                    <i className="bi bi-sun-fill"></i>
+                  )}
+                </Dropdown.Item>
+
+                <Dropdown.Divider />
+
+                {/* Log Out */}
+                {/*<Dropdown.Item className="bg-danger" onClick={logout}>
+                  <i className="bi bi-box-arrow-right me-2"></i> Log Out
+                </Dropdown.Item>*/}
+                <Dropdown.Item 
+                  className="m-0 p-0 d-flex px-2" 
+                  style={{
+                    backgroundColor: "transparent",
+                  }}
+                  onMouseEnter={(e) => (e.target.style.backgroundColor = "transparent")}
+                  onMouseLeave={(e) => (e.target.style.backgroundColor = "transparent")}
+                >
+                  <Button className="flex-fill bg-danger text-light border-0">
+                    <i className="bi bi-box-arrow-right me-2"></i> Log Out
+                  </Button>
+                </Dropdown.Item>
+              </Dropdown.Menu>
+            </Dropdown>
           </Nav>
         </Navbar.Collapse>
       </Container>

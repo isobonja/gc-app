@@ -14,20 +14,13 @@ import { isOwner } from '../constants/constants';
 
 function DashboardListGrid({ lists, handleListClick, handleListEdit, handleListDelete, onSort }) {
 
-  /* ADD EDIT BUTTONS */
-
-
-
-
-
-
   return (
     <Row className="g-4">
       {lists.map((list) => (
         <Col key={list.id} xs={12} sm={6} md={4} lg={3}>
           <Card
             onClick={() => handleListClick(list.id)}
-            className="h-100 bg-dark shadow-lg border-0 p-3 position-relative d-flex flex-column"
+            className="h-100 shadow-lg border-0 p-3 position-relative d-flex flex-column"
             role="button"
           >
             <div className="text-center mt-4 mb-1 flex-grow-1">

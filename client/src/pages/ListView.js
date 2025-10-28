@@ -47,6 +47,7 @@ import {
   canEdit,
   canView,
  } from '../constants/constants';
+import { useTheme } from '../context/ThemeContext';
 
 
 const emptyItem = { name: "", category: "", quantity: 1, id: null };
@@ -57,6 +58,8 @@ function ListView() {
   /** State Variables **/
   const { user, setUser } = useContext(UserContext);
   const [userRole, setUserRole] = useState("Viewer");
+
+  const { theme } = useTheme();
 
   const { addToast } = useToasts();
 
@@ -349,7 +352,7 @@ function ListView() {
   }
 
   return (
-    <div id="main" data-bs-theme="dark" className="d-flex flex-column min-vh-100">
+    <div id="main" className="d-flex flex-column min-vh-100">
       {/*
         <div id="main" data-bs-theme="dark" className="bg-dark text-light min-vh-100">
         THIS IS HOW TO MAKE THE PAGE ACTUALLY DARK MODE
@@ -365,14 +368,19 @@ function ListView() {
       <Container fluid className="d-flex flex-column flex-fill">
 
         {/* List Info */}
-        <Row className="mx-1 my-3 p-3 align-items-center border rounded-3 shadow-sm bg-dark text-light justify-content-between">
+        <Row 
+          className={[
+            "mx-1 my-3 p-3 align-items-center border rounded-3 shadow-sm justify-content-between",
+            theme === "light" ? "bg-dark text-light" : "bg-light text-primary"
+          ].join(" ")}
+        >
           <Col>
             <Row className="align-items-center">
               <Col xs="auto">
                 <h3 className="mb-0 fw-bold">{listName}</h3>
               </Col>
               <Col>
-                <small className="text-muted mb-0">
+                <small className="mb-0">
                   Last Modified: {listModifiedDate}
                 </small>
               </Col>
@@ -385,9 +393,9 @@ function ListView() {
                 {/* NEED TO FIGURE OUT HOW TO PREEVENT THIS LABEL FROM CHANGING WHEN MODAL OPEN */}
                 {(listOtherUsers.length > 0) ? (
                   <>
-                    <small className="text-muted me-1">Shared with:</small>
+                    <small className="me-1">Shared with:</small>
                     {listOtherUsers.map((user, idx) => (
-                      <small key={user.user_id || idx} className="text-muted me-1">
+                      <small key={user.user_id || idx} className="me-1">
                         {user.username}
                         {idx < listOtherUsers.length - 1 ? ',' : ''}
                       </small>
@@ -416,7 +424,7 @@ function ListView() {
         <Row className="flex-fill">
 
           {/** Current Grocery List Table **/}
-          <Col className="border mx-3">
+          <Col className="border mx-3 pt-3">
             {itemsInList.length === 0 ? (
               <Container className="d-flex flex-column align-items-center justify-content-center p-5">
                 <p>No items.</p>

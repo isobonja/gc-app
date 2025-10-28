@@ -71,7 +71,7 @@ function RegisterPage() {
   };
 
   return (
-    <div id="main" data-bs-theme="dark">
+    <div id="main">
       <Navbar expand="lg" className="bg-primary ps-3">
         <Navbar.Brand href="#home">Grocery List App</Navbar.Brand>
       </Navbar>

@@ -128,7 +128,24 @@ def me():
         }), 200
     else:
         return jsonify({"loggedIn": False}), 200
+
+@app.route("/get_theme", methods=["GET"])
+def get_theme():
+    theme = session.get('theme', 'light')
+    return jsonify({'success': True, 'theme': theme})
+
+@app.route("/set_theme", methods=['POST'])
+def set_theme():
+    data = request.get_json()
+    new_theme = data.get('newTheme')
     
+    if new_theme not in ['light', 'dark']:
+        return jsonify({'success': False, 'error': 'Invalid theme'}), 400
+
+    session['theme'] = new_theme
+    return jsonify({'success': True, 'theme': new_theme})
+
+
 @app.route('/get_notifications', methods=['GET'])
 def get_notifications():
     if 'user_id' not in session:

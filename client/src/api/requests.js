@@ -5,6 +5,18 @@ const api = axios.create({
   withCredentials: true,
 });
 
+// Get saved theme
+export const fetchTheme = async () => {
+  const res = await api.get("/get_theme");
+  return res.data;
+};
+
+// Set saved theme
+export const setTheme = async (newTheme) => {
+  const res = await api.post("/set_theme", { newTheme });
+  return res.data;
+};
+
 // User login
 export const login = async (username, password, keepLoggedIn) => {
   const res = await api.post("/login", { username, password, keepLoggedIn });

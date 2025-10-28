@@ -13,11 +13,20 @@ import {
 import { capitalize, convertUTCToLocal, formatListUserDisplay } from "../util/utils";
 
 import { DASHBOARD_TABLE_HEADERS, isOwner } from "../constants/constants";
+import { useTheme } from "../context/ThemeContext";
 
 function DashboardListTable({ lists, handleListClick, handleListEdit, handleListDelete, onSort}) {
 
+  const { theme } = useTheme();
+
   return (
-    <Table bordered hover style={{ overflow: 'visible' }}>
+    <Table 
+      bordered 
+      hover 
+      striped 
+      variant={theme === "light" ? "secondary" : "dark"} 
+      style={{ overflow: 'visible' }}
+    >
       <colgroup>
         <col style={{ width: '20%' }} /> {/* List name */}
         <col style={{ width: '5%' }} /> {/* Type */}
@@ -25,7 +34,9 @@ function DashboardListTable({ lists, handleListClick, handleListEdit, handleList
         <col style={{ width: '35%' }} /> {/* Last updated */}
         <col style={{ width: '25%' }} /> {/* Actions */}
       </colgroup>
-      <thead>
+      <thead 
+        className={theme === "light" ? "table-primary" : "table-dark"} 
+      >
         <tr>
           {DASHBOARD_TABLE_HEADERS.map((key) => (
             <th 
@@ -44,13 +55,14 @@ function DashboardListTable({ lists, handleListClick, handleListEdit, handleList
           <tr 
             key={list.id || idx} 
             onClick={(e) => handleListClick(list.id)} 
+            className="align-middle" 
             style={{ cursor: 'pointer' }}
           >
             {/* List Name */}
             <td>{list.name}</td>
 
             {/* List Type (Private or Shared) */}
-            <td className="position-relative">
+            <td className="d-flex justify-content-center align-items-center position-relative">
               <div className="d-inline-block position-relative" style={{ overflow: "visible" }}>
                 {list.other_users.length > 0 ? (
                   <OverlayTrigger
