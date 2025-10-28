@@ -1,5 +1,6 @@
 from datetime import timedelta, datetime, timezone
 import datetime
+import json
 import sqlite3
 import bcrypt
 from flask import Flask, request, jsonify, session
@@ -237,7 +238,8 @@ def create_list():
             actionable=True,
             action_type=ActionableNotificationType.JOIN_LIST_REQUEST.value,
             requested_list_id=list_id,
-            unread=True
+            unread=True,
+            data={'user_roles': [user['role'] for user in other_users]}
         )
         # Add other users to grocery_list_users table if they exist
         #for user in other_users:
@@ -389,7 +391,7 @@ def get_user_lists():
             'other_users': other_users_map.get(list_id, [])
         })
 
-    logger.info(f"Fetched lists for user_id {user_id}: {lists_info}")
+    #logger.info(f"Fetched lists for user_id {user_id}: {lists_info}")
     return jsonify({'success': True, 'lists': lists_info})
 
 @app.route('/list/get_list_data', methods=['GET'])
@@ -796,7 +798,9 @@ def add_user_to_list():
     data = request.get_json()
     list_id = data.get('currentListId')
     username = data.get('username')
-    notif_data = data.get('data', {})
+    notif_data = json.loads(data.get('data', {}))
+    
+    logger.info(f"Notif_data: {notif_data}\tVar type: {type(notif_data)}")
     
     #logger.info(f"Adding user {new_user} to list {list_id}")
     

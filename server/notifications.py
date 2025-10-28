@@ -1,6 +1,7 @@
 # File for creating and managing notifications
 from datetime import date
 from enum import Enum
+import json
 import sqlite3
 
 from logger import logger
@@ -34,6 +35,9 @@ def create_notification(
         raise ValueError(f"Invalid actionable notification type: {action_type}")
     
     try:
+        data_str = json.dumps(kwargs.get('data')) if 'data' in kwargs else None
+        logger.info(f"data_str: {data_str}")
+        
         cur.execute('''
             INSERT INTO notifications (user_id, icon, message, actionable, action_type, requested_list_id, unread, created_at, data)
             VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)
@@ -45,7 +49,7 @@ def create_notification(
             action_type,
             requested_list_id,
             unread,
-            kwargs.get('data') if 'data' in kwargs else None
+            data_str
         ))  
         
         logger.info(f"Notification created for user_id {user_id} with message: {message}")
@@ -69,8 +73,10 @@ def create_notifications_for_users(
     notification_ids = []
     #for user_id in user_ids:
     for i, user_id in enumerate(user_ids):
-        
-        data = {'user_role': kwargs.get('user_roles')[i]} if 'user_roles' in kwargs else None
+        logger.info(f"Kwargs user_roles: {kwargs.get('data')}")
+        data = kwargs.get('data') if 'data' in kwargs else None
+        role_data = {'user_role': data.get('user_roles')[i].lower()} if 'user_roles' in data else None
+        logger.info(f"Role Data: {role_data}")
         
         new_notification_id = create_notification(
             cur,
@@ -81,7 +87,7 @@ def create_notifications_for_users(
             action_type,
             requested_list_id,
             unread,
-            data=data
+            data=role_data
         )
         notification_ids.append(new_notification_id)
         

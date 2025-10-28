@@ -78,8 +78,8 @@ export const deleteItem = async (listId, itemId) => {
 };
 
 // Add user to list
-export const addUserToList = async ({ listId, username }) => {
-  const res = await api.post("/list/add_user_to_list", { currentListId: listId, username });
+export const addUserToList = async ({ listId, username, data }) => {
+  const res = await api.post("/list/add_user_to_list", { currentListId: listId, username, data });
   return res.data;
 };
 

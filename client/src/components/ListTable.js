@@ -32,22 +32,26 @@ function ListTable({ items, onItemEdit, onItemDelete, disableButtons, onSort }) 
               <td key={key}>{capitalize(item[key])}</td>
             ))}
             <td>
-              <Button 
-                variant="warning" 
-                size="sm" 
-                onClick={() => onItemEdit(item)}
-                disabled={disableButtons}
-              >
-                Edit
-              </Button>
-              <Button 
-                variant="danger" 
-                size="sm" 
-                onClick={() => onItemDelete(item)}
-                disabled={disableButtons}
-              >
-                Delete
-              </Button>
+              <div className="d-flex flex-row gap-2">
+                <Button 
+                  variant="warning" 
+                  size="sm" 
+                  className="flex-fill"
+                  onClick={() => onItemEdit(item)}
+                  disabled={disableButtons}
+                >
+                  Edit
+                </Button>
+                <Button 
+                  variant="danger" 
+                  size="sm" 
+                  className="flex-fill" 
+                  onClick={() => onItemDelete(item)}
+                  disabled={disableButtons}
+                >
+                  Delete
+                </Button>
+              </div>
             </td>
           </tr>
         ))}

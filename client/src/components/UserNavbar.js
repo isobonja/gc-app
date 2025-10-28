@@ -220,6 +220,7 @@ function UserNavbar({ username }) {
                           console.log("Confirmed action for notification", n.id);
                           if (n.action_type === 'join_list_request') {
                             // Add user to the list with ID n.requested_list_id
+                            console.log("Notif data: ", n.data);
                             addUserToList({ listId: n.requested_list_id, username: username, data: n.data })
                               .then(response => {
                                 console.log("User added to list response:", response);

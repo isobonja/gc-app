@@ -74,7 +74,7 @@ CREATE TABLE notifications (
     unread BOOLEAN NOT NULL DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     read_at TIMESTAMP DEFAULT NULL,
-    data JSON DEFAULT NULL,
+    data TEXT DEFAULT NULL,
 
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (requested_list_id) REFERENCES grocery_lists(list_id) ON DELETE CASCADE
