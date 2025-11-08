@@ -25,7 +25,8 @@ load_dotenv()
 
 # Defines app specification
 app = Flask(__name__)
-CORS(app, origins=["http://localhost:3000"], supports_credentials=True)
+#CORS(app, origins=["http://localhost:3000"], supports_credentials=True)
+CORS(app, supports_credentials=True)
 app.secret_key = os.getenv("FLASK_SECRET_KEY")
 
 # Enables session expiration after a set time
