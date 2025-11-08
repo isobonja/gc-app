@@ -1,5 +1,4 @@
-import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import React from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min';
 
@@ -19,13 +18,13 @@ function ListTable({ items, onItemEdit, onItemDelete, disableButtons, onSort }) 
   const { theme } = useTheme();
 
   return (
-    <Table bordered hover striped variant={theme === "light" ? "secondary" : "dark"}>
+    <Table bordered hover striped variant={theme === "light" ? "secondary" : "dark"} >
       <thead className={theme === "light" ? "table-primary" : "table-dark"} >
         <tr>
           {LIST_TABLE_HEADERS.map((key) => (
             <th key={key} onClick={() => onSort(key)} style={{ cursor: 'pointer' }}>{capitalize(key)}</th>
           ))}
-          <th>Actions</th>
+          <th style={{ width: '20%' }}>Actions</th>
         </tr>
       </thead>
       <tbody>

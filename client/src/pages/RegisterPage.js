@@ -73,7 +73,7 @@ function RegisterPage() {
   return (
     <div id="main">
       <Navbar expand="lg" className="bg-primary ps-3">
-        <Navbar.Brand href="#home">Grocery List App</Navbar.Brand>
+        <Navbar.Brand href="#home" className="text-light">Grocery List App</Navbar.Brand>
       </Navbar>
       <Container className="p-3 w-25 mx-auto">
         <Form onSubmit={handleRegister}>

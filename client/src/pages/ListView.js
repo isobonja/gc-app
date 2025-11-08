@@ -8,15 +8,10 @@ import {
   Container, 
   Row, 
   Col, 
-  Nav, 
-  Navbar,
-  Card,
-  Table,
   Form,
   Button,
   Modal,
-  Dropdown,
-  Spinner
+  Dropdown
 } from 'react-bootstrap';
 
 import ListTable from '../components/ListTable';
@@ -42,10 +37,8 @@ import { categoryIdToName, convertUTCToLocal, sortArray } from '../util/utils';
 
 import { 
   SUGGESTIONS_MAX_SHOW, 
-  isOwner,
   canManageUsers,
   canEdit,
-  canView,
  } from '../constants/constants';
 import { useTheme } from '../context/ThemeContext';
 
@@ -53,7 +46,7 @@ import { useTheme } from '../context/ThemeContext';
 const emptyItem = { name: "", category: "", quantity: 1, id: null };
 
 function ListView() {
-  const navigate = useNavigate();
+  //const navigate = useNavigate();
   const { listId } = useParams();
   /** State Variables **/
   const { user, setUser } = useContext(UserContext);
@@ -424,19 +417,21 @@ function ListView() {
         <Row className="flex-fill">
 
           {/** Current Grocery List Table **/}
-          <Col className="border mx-3 pt-3">
+          <Col className="border mx-3 pt-3"  style={{ overflowY: 'scroll' }}>
             {itemsInList.length === 0 ? (
               <Container className="d-flex flex-column align-items-center justify-content-center p-5">
                 <p>No items.</p>
               </Container>
             ) : (
-              <ListTable 
-                items={itemsInList}
-                onItemEdit={handleShowEditItem}
-                onItemDelete={handleDeleteItem} 
-                disableButtons={!canEdit(userRole)} 
-                onSort={handleSortItems}
-              />
+              <div style={{ maxHeight: '80vh', overflowY: 'auto' }}>
+                <ListTable 
+                  items={itemsInList}
+                  onItemEdit={handleShowEditItem}
+                  onItemDelete={handleDeleteItem} 
+                  disableButtons={!canEdit(userRole)} 
+                  onSort={handleSortItems}
+                />
+              </div>
             )}
           </Col>
 

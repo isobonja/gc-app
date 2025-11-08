@@ -89,6 +89,21 @@ CREATE TABLE notifications (
 )
 ''')
 
+users = [
+    ('A', 'a'),
+    ('B', 'b')
+]
+
+# How to insert new user
+for n, p in users:
+    hashed_p = bcrypt.hashpw(p.encode('utf-8'), bcrypt.gensalt())
+    cursor.execute('''
+        INSERT INTO users (username, password_hash)
+        VALUES (?, ?)
+    ''', (n, hashed_p))
+
+
+# How to insert category
 categories = [
     ('dairy',),
     ('meat',),
@@ -111,6 +126,61 @@ categories = [
 ]
 
 cursor.executemany('INSERT INTO categories (name) VALUES (?)', categories)
+
+test_items = [
+    ('eggs', 'dairy'), 
+    ('milk', 'dairy'), 
+    ('shampoo', 'personal care'), 
+    ('chicken breasts', 'meat')
+]
+
+for item, category in test_items:
+    cursor.execute('''
+        INSERT INTO items (name, category_id)
+        SELECT ?, category_id
+        FROM categories
+        WHERE name = ?
+    ''', (item, category))
+
+
+# Add new grocery list
+grocery_lists = [
+    ('test_list1', ['A'], 'owner')
+]
+
+for new_list in grocery_lists:
+    # Create new grocery list
+    cursor.execute('''
+        INSERT INTO grocery_lists (name, creation_date, update_date)
+        VALUES (?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    ''', (new_list[0],))
+    
+    # Add users that are a part of grocery list to grocery_list_users table
+    list_id = cursor.lastrowid
+    
+    cursor.execute('''
+        SELECT user_id FROM users WHERE username IN ({})             
+    '''.format(','.join(['?'] * len(new_list[1]))), new_list[1])
+    
+    user_ids = [row[0] for row in cursor.fetchall()]
+    
+    for user_id in user_ids:
+        cursor.execute('''
+            INSERT INTO grocery_list_users (list_id, user_id, role)
+            VALUES (?, ?, ?)               
+        ''', (list_id, user_id, new_list[2]))
+        
+#list_id, item_id, quantity
+items_to_list = [
+    (1, 1, 1),
+    (1, 3, 2)
+]
+
+for list_id, item_id, quantity in items_to_list:
+    cursor.execute('''
+        INSERT INTO grocery_list_items (list_id, item_id, quantity)
+        VALUES (?, ?, ?)
+    ''', (list_id, item_id, quantity))
 
 conn.commit()
 conn.close()

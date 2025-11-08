@@ -320,7 +320,7 @@ function UserNavbar({ username }) {
                   onMouseEnter={(e) => (e.target.style.backgroundColor = "transparent")}
                   onMouseLeave={(e) => (e.target.style.backgroundColor = "transparent")}
                 >
-                  <Button className="flex-fill bg-danger text-light border-0">
+                  <Button className="flex-fill bg-danger text-light border-0" onClick={logout}>
                     <i className="bi bi-box-arrow-right me-2"></i> Log Out
                   </Button>
                 </Dropdown.Item>
