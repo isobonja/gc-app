@@ -12,7 +12,51 @@ import { formatListUserDisplay } from '../util/utils';
 
 import { isOwner } from '../constants/constants';
 
-function DashboardListGrid({ lists, handleListClick, handleListEdit, handleListDelete, onSort }) {
+/**
+ * A responsive grid layout for displaying grocery lists on the dashboard.
+ *
+ * Each list is shown as a Bootstrap card with its name, last update time,
+ * sharing status, and action buttons for editing or deleting (if the user is an owner).
+ *
+ * @component
+ * @param {Object} props
+ * @param {Array<Object>} props.lists - Array of grocery list objects to display.
+ * @param {number} props.lists[].id - The unique ID of the list.
+ * @param {string} props.lists[].name - The name of the grocery list.
+ * @param {string} props.lists[].last_updated - The last updated date/time of the list.
+ * @param {Array<Object>} props.lists[].other_users - Users the list is shared with.
+ * @param {string} props.lists[].role - The current user's role in the list (e.g., `"Owner"`, `"Editor"`, `"Viewer"`).
+ * @param {Function} props.handleListClick - Function to handle when a list card is clicked.
+ * @param {Function} props.handleListEdit - Function to handle when the edit button is clicked.
+ * @param {Function} props.handleListDelete - Function to handle when the delete button is clicked.
+ *
+ * @example
+ * const lists = [
+ *   {
+ *     id: 1,
+ *     name: "Weekly Groceries",
+ *     last_updated: "2025-10-08",
+ *     other_users: [{ username: "Alice" }, { username: "Bob" }],
+ *     role: "Owner"
+ *   },
+ *   {
+ *     id: 2,
+ *     name: "Camping Supplies",
+ *     last_updated: "2025-10-07",
+ *     other_users: [],
+ *     role: "Viewer"
+ *   }
+ * ];
+ *
+ * <DashboardListGrid
+ *   lists={lists}
+ *   handleListClick={(id) => console.log("Open list", id)}
+ *   handleListEdit={(list) => console.log("Edit list", list)}
+ *   handleListDelete={(id, name) => console.log("Delete list", id, name)}
+ *   onSort={() => console.log("Sort lists")}
+ * />
+ */
+function DashboardListGrid({ lists, handleListClick, handleListEdit, handleListDelete }) {
 
   return (
     <Row className="g-4">

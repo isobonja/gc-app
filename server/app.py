@@ -27,7 +27,13 @@ load_dotenv()
 app = Flask(__name__)
 #CORS(app, origins=["http://localhost:3000"], supports_credentials=True)
 CORS(app, supports_credentials=True)
-app.secret_key = os.getenv("FLASK_SECRET_KEY")
+
+# Sets secret key for CORS capabilities
+app_secret = os.getenv("FLASK_SECRET_KEY")
+if not app_secret:
+    raise RuntimeError("Environment variable 'FLASK_SECRET_KEY' is not set. Please define it in your .env file.")
+
+app.secret_key = app_secret
 
 # Enables session expiration after a set time
 app.config['SESSION_PERMANENT'] = False
@@ -117,9 +123,6 @@ def login():
         # ******** 
         # NEEDS FIXING/REWRITING
         # ********
-        #
-        #
-        #
         # ------------------------------------
         recent_list = cursor.execute('''
             SELECT gl.list_id
@@ -650,7 +653,7 @@ def delete_list():
     - `200 OK` and JSON `{ success: True }` on successful deletion.
     - `400 Bad Request` and JSON `{ success: False, error: str }` if the list ID is missing.
     - `401 Unauthorized` and JSON `{ success: False, error: str }` if the user is not logged in.
-    - `401 Forbidden` and JSON `{ success: False, error: str }` if the user does not have access to the list.
+    - `403 Forbidden` and JSON `{ success: False, error: str }` if the user does not have access to the list.
     - `500 Internal Server Error` and JSON `{ success: False, error: str }` if a database or unexpected error occurs.
 
     Raises:
@@ -705,28 +708,38 @@ def delete_list():
     
     return jsonify({'success': True}), 200
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-# *****************************
-# EVERYTHING ABOVE IS COMMENTED/HAS DOCSTRINGS
-# ****************************
-
-
-
 @app.route('/dashboard/edit_list', methods=['PUT'])
 def edit_list():
+    """
+    Edits a specified grocery list.
+
+    This endpoint allows an authenticated user with a role of 'Owner' 
+    to modify a grocery list, including the list name and the added users.  
+    Notifications will be sent to all other users that are a part of the list.
+
+    ---
+    Request JSON Parameters:
+    - `listId` (int): The ID of the list to be edited.
+    - `listName` (str): The new submitted list name.
+    - `otherUsers` (list[dict], optional): The new list of users.  
+      Each object should include:
+        - `user_id` (int): The user's ID.  
+        - `role` (str): The role of the user in the list (e.g., `"editor"`, `"viewer"`).
+
+    Returns:
+    - `200 OK` and JSON `{ success: True, message: str }` on successful edit.
+    - `400 Bad Request` and JSON `{ success: False, error: str }` if the list ID or name is missing.
+    - `401 Unauthorized` and JSON `{ success: False, error: str }` if the user is not logged in.
+    - `403 Forbidden` and JSON `{ success: False, error: str }` if the user does not have access to the list.
+    - `500 Internal Server Error` and JSON `{ success: False, error: str }` if a database or unexpected error occurs.
+
+    Raises:
+    - None directly, but returns error messages for authentication or database failures.
+    """
     logger.info("Edit list endpoint")
+    
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'User not logged in'}), 401
     
     data = request.get_json()
     list_id = data.get('listId')
@@ -734,100 +747,146 @@ def edit_list():
     list_other_users = data.get('otherUsers', [])
     
     if not list_id or not list_name:
-        return jsonify({'success': False, 'error': 'Missing list ID or name'})
+        return jsonify({'success': False, 'error': 'Missing list ID or name'}), 400
     
     with get_db_conn() as conn:
         cursor = conn.cursor()
-        old_name = cursor.execute('SELECT name FROM grocery_lists WHERE list_id = ?', (list_id,)).fetchone()[0]
         
-        cursor.execute('''
-            UPDATE grocery_lists 
-            SET name = ?, update_date = CURRENT_TIMESTAMP
-            WHERE list_id = ?
-        ''', (list_name, list_id))
-        
-        if old_name != list_name:
-            # Notify other users of list name change
+        try:
+            # Check if the user has access to the list
+            access_check = cursor.execute('SELECT 1 FROM grocery_list_users WHERE list_id = ? AND user_id = ?', (list_id, session['user_id'])).fetchone()
+            if not access_check:
+                return jsonify({'success': False, 'error': 'User does not have access to this list'}), 403
+            
+            # Retrieve old list name
+            old_name = cursor.execute('SELECT name FROM grocery_lists WHERE list_id = ?', (list_id,)).fetchone()[0]
+            
+            # Update list name in DB table
+            cursor.execute('''
+                UPDATE grocery_lists 
+                SET name = ?, update_date = CURRENT_TIMESTAMP
+                WHERE list_id = ?
+            ''', (list_name, list_id))
+            
+            if old_name != list_name:
+                # Notify other users of list name change
+                create_notifications_for_users(
+                    cur=cursor,
+                    user_ids=[u['user_id'] for u in list_other_users],
+                    message=f"{session['username']} changed the name of grocery list from '{old_name}' to '{list_name}'.",
+                    icon=NotificationType.EDIT.value
+                )
+            
+            # Retrieve old list of users of list
+            old_other_users = cursor.execute('''
+                SELECT user_id, role
+                FROM grocery_list_users
+                WHERE list_id = ? AND user_id != ?
+            ''', (list_id, session.get('user_id'))).fetchall()
+            
+            # Determine which users were added and which were removed
+            old_users_dict = {u[0]: u[1].lower() for u in old_other_users}
+            new_users_dict = {u.get('user_id'): u.get('role').lower() for u in list_other_users}
+
+            added_user_ids = [u_id for u_id in new_users_dict if u_id not in old_users_dict]
+            removed_user_ids = [u_id for u_id in old_users_dict if u_id not in new_users_dict]
+            
+            # Determine any changed roles for existing users
+            changed_roles = {
+                u_id: (old_users_dict[u_id], new_users_dict[u_id])
+                for u_id in old_users_dict.keys() & new_users_dict.keys()
+                if old_users_dict[u_id] != new_users_dict[u_id]
+            }
+            
+            # Send notifications to users that were added
             create_notifications_for_users(
                 cur=cursor,
-                user_ids=[u['user_id'] for u in list_other_users],
-                message=f"{session['username']} changed the name of grocery list from '{old_name}' to '{list_name}'.",
-                icon=NotificationType.EDIT.value
+                user_ids=added_user_ids,
+                message=f"{session['username']} invites you to grocery list '{list_name}'.",
+                icon=NotificationType.INVITE.value,
+                actionable=True,
+                action_type=ActionableNotificationType.JOIN_LIST_REQUEST.value,
+                requested_list_id=list_id
             )
-        
-        
-        
-        old_other_users = cursor.execute('''
-            SELECT user_id, role
-            FROM grocery_list_users
-            WHERE list_id = ? AND user_id != ?
-        ''', (list_id, session.get('user_id'))).fetchall()
-        
-        old_users_dict = {u[0]: u[1].lower() for u in old_other_users}
-        new_users_dict = {u.get('user_id'): u.get('role').lower() for u in list_other_users}
-
-        added_user_ids = [u_id for u_id in new_users_dict if u_id not in old_users_dict]
-        removed_user_ids = [u_id for u_id in old_users_dict if u_id not in new_users_dict]
-        changed_roles = {
-            u_id: (old_users_dict[u_id], new_users_dict[u_id])
-            for u_id in old_users_dict.keys() & new_users_dict.keys()
-            if old_users_dict[u_id] != new_users_dict[u_id]
-        }
-        
-        create_notifications_for_users(
-            cur=cursor,
-            user_ids=added_user_ids,
-            message=f"{session['username']} invites you to grocery list '{list_name}'.",
-            icon=NotificationType.INVITE.value,
-            actionable=True,
-            action_type=ActionableNotificationType.JOIN_LIST_REQUEST.value,
-            requested_list_id=list_id
-        )
-        
-        create_notifications_for_users(
-            cur=cursor,
-            user_ids=removed_user_ids,
-            message=f"{session['username']} removed you from grocery list '{list_name}'.",
-            icon=NotificationType.DELETE.value
-        )
-        for user_id in removed_user_ids:
-            cursor.execute('''
-                DELETE FROM grocery_list_users
-                WHERE list_id = ? AND user_id = ?
-            ''', (list_id, user_id))
-        
-        for user_id, (old_role, new_role) in changed_roles.items():
-            create_notification(
+            
+            # Send notifications to users that were removed
+            create_notifications_for_users(
                 cur=cursor,
-                user_id=user_id,
-                message=f"{session['username']} changed your role from '{old_role.capitalize()}' to '{new_role.capitalize()}' in grocery list '{list_name}'.",
-                icon=NotificationType.EDIT.value
+                user_ids=removed_user_ids,
+                message=f"{session['username']} removed you from grocery list '{list_name}'.",
+                icon=NotificationType.DELETE.value
             )
-            cursor.execute('''
-               UPDATE grocery_list_users
-               SET role = ?
-               WHERE user_id = ? AND list_id = ?            
-            ''', (new_role, user_id, list_id))
+            
+            # Remove users from list
+            for user_id in removed_user_ids:
+                cursor.execute('''
+                    DELETE FROM grocery_list_users
+                    WHERE list_id = ? AND user_id = ?
+                ''', (list_id, user_id))
+            
+            # Send notifications to users whose roles were updated, and
+            # update their roles in the database
+            for user_id, (old_role, new_role) in changed_roles.items():
+                create_notification(
+                    cur=cursor,
+                    user_id=user_id,
+                    message=f"{session['username']} changed your role from '{old_role.capitalize()}' to '{new_role.capitalize()}' in grocery list '{list_name}'.",
+                    icon=NotificationType.EDIT.value
+                )
+                cursor.execute('''
+                UPDATE grocery_list_users
+                SET role = ?
+                WHERE user_id = ? AND list_id = ?            
+                ''', (new_role, user_id, list_id))
+        except Exception as e:
+            logger.error(f"Error editing list with ID {list_id}: {e}")
+            return jsonify({'success': False, 'error': f'Error editing list: {e}'}), 500
     
     return jsonify({'success': True, 'message': 'Successfully updated list!'})
 
 @app.route('/list/add_item', methods=['POST'])
 def add_item():
+    """
+    Add an item to an existing grocery list.
+
+    ---
+    Request JSON Parameters:
+    - `listId` (int): The list's ID.
+    - `item` (dict): The item to be added.  
+      Each item object should include:
+        - `name` (str): The name of the item.  
+        - `category` (str): The category of the item.
+        - 'quantity' (int): The amount of the item.
+        - 'id' (int): The item's database ID, if applicable
+            > If 'id' is None, then a new item is created in the database.
+
+    Returns:
+    - `200 OK` and JSON `{ success: True, item_id: int }` on success.
+    - `400 Bad Request` and JSON `{ success: False, error: str }` if the list name or category are missing.
+    - `401 Unauthorized` and JSON `{ success: False, error: str }` if the user is not logged in.
+    - `403 Forbidden` and JSON `{ success: False, error: str }` if the user does not have access to the list.
+    - `500 Internal Server Error` and JSON `{ success: False, error: str }` if a database or unexpected error occurs.
+
+    Raises:
+    - None directly, but returns error messages for authentication or database failures.
+    """
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'User not logged in'}), 401
+    
     data = request.get_json()
+    
     list_id = data.get('listId')
     item = data.get('item')
     
-    # ****************
-    # NEED TO ADD CHECK IF USER IS A PART OF LIST
-    # ****************
-    
-    logger.info(f"Adding item: {item.get('name')}, category: {item.get('category')}, quantity: {item.get('quantity')}, id: {item.get('id')}")
-    
     if not item.get('name') or not item.get('category'):
-        return jsonify({'success': False, 'error': 'Item name and category are required'}), 401
+        return jsonify({'success': False, 'error': 'Item name and category are required'}), 400
     
     with get_db_conn() as conn:
         cursor = conn.cursor()
+        
+        access_check = cursor.execute('SELECT 1 FROM grocery_list_users WHERE list_id = ? AND user_id = ?', (list_id, session['user_id'])).fetchone()
+        if not access_check:
+            return jsonify({'success': False, 'error': 'User does not have access to this list'}), 403
         
         list_name = cursor.execute('SELECT name FROM grocery_lists WHERE list_id = ?', (list_id,)).fetchone()[0]
         
@@ -851,7 +910,6 @@ def add_item():
                     (item.get('name'), category_id[0])
                 )
                 item_id = cursor.execute('SELECT last_insert_rowid()').fetchone()[0]
-                #logger.info("No existing item")
         
         # Insert item into grocery_list_items table
         try:
@@ -859,6 +917,7 @@ def add_item():
                 cursor.execute('INSERT INTO grocery_list_items (list_id, item_id, quantity) VALUES (?, ?, ?)', (list_id, item_id, item.get('quantity', 1)))
                 logger.info(f"Item {item.get('name')} added successfully")
                 
+                # Send notification to all uusers that are a part of the list, other than the user that added the item
                 create_notifications_for_users_of_list(
                     cur=cursor,
                     list_id=list_id,
@@ -867,61 +926,93 @@ def add_item():
                     icon=NotificationType.DEFAULT.value
                 )
                 
-                return jsonify({'success': True}), 200
+                
             else:
                 return jsonify({'success': False, 'error': 'Error modifying database'})
         except sqlite3.IntegrityError as e:
-            logger.error(f"Failed to add item: {e}")
             return jsonify({'success': False, 'error': 'Item already exists in the list'}), 400
-        #finally:
-        #    conn.close()
+        except Exception as e:
+            logger.error(f"Error adding item to list {list_id}: {e}")
+            return jsonify({'success': False, 'error': f'Error adding item: {e}'}), 500
+        
+    return jsonify({'success': True, 'item_id': item_id}), 200
 
 @app.route('/list/edit_item', methods=['POST'])
 def edit_item():
-    conn = get_db_conn()
+    """
+    Edit an item from an existing grocery list.
+
+    This endpoint compares an item's old data and the inputted new data 
+    and makes changes in the database, updating all values for keys 
+    'name', 'category', and 'quantity' which differ between the old data 
+    and the new data.
+
+    ---
+    Request JSON Parameters:
+    - `listId` (int): The list's ID.
+    - `oldItem` (dict): The old data of the item.  
+      Each item object should include:
+        - `name` (str): The name of the item.  
+        - `category` (str): The category of the item.
+        - 'quantity' (int): The amount of the item.
+        - 'id' (int): The item's database ID, if applicable
+    - `newItem` (dict): The new data of the item.  
+      Each item object should include:
+        - `name` (str): The name of the item.  
+        - `category` (str): The category of the item.
+        - 'quantity' (int): The amount of the item.
+        - 'id' (int): The item's database ID, if applicable
+
+    Returns:
+    - `200 OK` and JSON `{ success: True, message: str }` on success.
+    - `400 Bad Request` and JSON `{ success: False, error: str }` if:
+        > No changes are detected between old and new data
+        > The list ID changes
+        > The category name in the newItem data does not correspond to an existing entry in the categories DB table.
+    - `401 Unauthorized` and JSON `{ success: False, error: str }` if the user is not logged in.
+    - `403 Forbidden` and JSON `{ success: False, error: str }` if the user does not have access to the list.
+    - `500 Internal Server Error` and JSON `{ success: False, error: str }` if a database or unexpected error occurs.
+
+    Raises:
+    - None directly, but returns error messages for authentication or database failures.
+    """
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'User not logged in'}), 401
+    
     data = request.get_json()
     
     list_id = data.get('listId')
     old_item_data = data.get('oldItem')
     new_item_data = data.get('newItem')
     
-    # ****************
-    # NEED TO ADD CHECK IF USER IS A PART OF LIST
-    # ****************
-    user_in_list = conn.execute('''
-        SELECT 1
-        FROM grocery_list_users
-        WHERE list_id = ? AND user_id = ?
-    ''', (list_id, session['user_id'])).fetchone()
-    
-    if not user_in_list:
-        return jsonify({'success': False, 'error': 'User does not have access to this list'}), 403
-    
-    logger.info(f'list_id: {list_id}\told_item: {old_item_data}\tnew_item: {new_item_data}')
-    
+    # Determine which keys are differing
     differing_value_keys = [k for k in old_item_data if old_item_data[k] != new_item_data[k]]
     
-    logger.info(f'Differing keys: {differing_value_keys}')
+    if not differing_value_keys:
+        return jsonify({'success': False, 'error': 'No changes detected.'}), 400
     
     with get_db_conn() as conn:
         cursor = conn.cursor()
+        
+        access_check = cursor.execute('SELECT 1 FROM grocery_list_users WHERE list_id = ? AND user_id = ?', (list_id, session['user_id'])).fetchone()
+        if not access_check:
+            return jsonify({'success': False, 'error': 'User does not have access to this list'}), 403
         
         list_name = cursor.execute('SELECT name FROM grocery_lists WHERE list_id = ?', (list_id,)).fetchone()[0]
         
         try:
             if 'id' in differing_value_keys:
-                return jsonify({'success': False, 'error': "The item ID was changed, this shouldn't be possible..."})
+                return jsonify({'success': False, 'error': "The item ID was changed, this shouldn't be possible..."}), 400
             elif update_list_modified_date(cursor, list_id):
                 if 'quantity' in differing_value_keys:
-                    # find row in grocery_list_items table with corresponding item_id and list_id and update the quantity
-                    # return
-                    logger.info(f"Updating quantity to {new_item_data.get('quantity')} for item_id {old_item_data.get('id')} in list_id {list_id}")
+                    # Update 'quantity' value for corresponding item in list
                     cursor.execute('''
                         UPDATE grocery_list_items
                         SET quantity = ?
                         WHERE list_id = ? AND item_id = ?
                     ''', (new_item_data.get('quantity'), list_id, old_item_data.get('id')))
                     
+                    # Send notification to all other users that are a part of the list
                     create_notifications_for_users_of_list(
                         cur=cursor,
                         list_id=list_id,
@@ -933,27 +1024,29 @@ def edit_item():
                     return jsonify({'success': True, 'message': 'Quantity updated successfully'})
                 
                 if 'category' in differing_value_keys or 'name' in differing_value_keys:
-                    # check if itemName/category pair exist as row in 'items' table
-                    # if not, create new item, remove edited item from list, and add the new item in its place
-                    # *** IDEA *** Might it be good to make (itemName, category) a primary key in the table?
-                    # return
+                    
                     category_id = cursor.execute('SELECT category_id FROM categories WHERE name = ?', (new_item_data.get('category'),)).fetchone()[0]
-                    logger.info(f"category_id: {category_id}")
                     if category_id is None:
-                        return jsonify({'success': False, 'error': 'Category does not exist'})
+                        return jsonify({'success': False, 'error': 'Category does not exist'}), 400
+                    
+                    # Check if an item exists with the new item name and category
                     exists = cursor.execute('SELECT item_id FROM items WHERE name = ? AND category_id = ?', (new_item_data.get('name'), category_id)).fetchone()
-                    logger.info(f"exists: {exists}")
+
                     if exists is None:
-                        # create new item
+                        # If not, create new item
                         cursor.execute('INSERT INTO items (name, category_id) VALUES (?, ?)', (new_item_data.get('name'), category_id))
                         new_item_id = cursor.execute('SELECT last_insert_rowid()').fetchone()[0]
                     else:
+                        # Otherwise, retrieve item id of existing item
                         new_item_id = exists[0]
-                    # remove old item from list
+                    
+                    # Remove old item from list
                     cursor.execute('DELETE FROM grocery_list_items WHERE list_id = ? AND item_id = ?', (list_id, old_item_data.get('id'),))
-                    # add new item to list
+                    
+                    # Add new item to list
                     cursor.execute('INSERT INTO grocery_list_items (list_id, item_id, quantity) VALUES (?, ?, ?)', (list_id, new_item_id, new_item_data.get('quantity', 1)))
                     
+                    # Determine format of notification message based on what was changed
                     if 'category' in differing_value_keys and 'name' in differing_value_keys:
                         change_desc = f"name of '{old_item_data.get('name')}' to '{new_item_data.get('name')}' and category to '{new_item_data.get('category')}'"
                     elif 'category' in differing_value_keys:
@@ -968,41 +1061,59 @@ def edit_item():
                         message=f"{session['username']} updated the {change_desc} in list '{list_name}'.",
                         icon=NotificationType.EDIT.value
                     )
-                    
-                    return jsonify({'success': True, 'message': 'Item updated successfully'})
             
-        except Exception as e: #Make more specific
-            return jsonify({'success': False, 'error': 'No changes detected.'})
-        #finally:
-        #    conn.close()
+        except Exception as e:
+            logger.error(f"Error editing item in list {list_id}: {e}")
+            return jsonify({'success': False, 'error': f'Error editing item: {e}'}), 500
+        
+    return jsonify({'success': True, 'message': 'Item updated successfully'}), 200
 
 @app.route('/list/delete_item', methods=['POST'])
 def delete_item():
-    conn = get_db_conn()
+    """
+    Delete an item from an existing grocery list.
+
+    ---
+    Request JSON Parameters:
+    - `currentListId` (int): The list's ID.
+    - `itemId` (int): The item's ID.
+
+    Returns:
+    - `200 OK` and JSON `{ success: True }` on success.
+    - `400 Bad Request` and JSON `{ success: False, error: str }` if no item ID is provided.
+    - `401 Unauthorized` and JSON `{ success: False, error: str }` if the user is not logged in.
+    - `403 Forbidden` and JSON `{ success: False, error: str }` if the user does not have access to the list.
+    - `500 Internal Server Error` and JSON `{ success: False, error: str }` if a database or unexpected error occurs.
+
+    Raises:
+    - None directly, but returns error messages for authentication or database failures.
+    """
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'User not logged in'}), 401
     
     data = request.get_json()
     list_id = data.get('currentListId')
     item_id = data.get('itemId')
     
-    logger.info(f"Deleting item from list {list_id} with ID: {item_id}")
-    
     if not item_id:
         return jsonify({'success': False, 'error': 'Item ID is required'}), 400
     
-    # Delete item from grocery_list_items table
     with get_db_conn() as conn:
         cursor = conn.cursor()
         
-        list_name = cursor.execute('SELECT name FROM grocery_lists WHERE list_id = ?', (list_id,)).fetchone()[0]
-        
         try:
-            #logger.info('trying delete')
+            access_check = cursor.execute('SELECT 1 FROM grocery_list_users WHERE list_id = ? AND user_id = ?', (list_id, session['user_id'])).fetchone()
+            if not access_check:
+                return jsonify({'success': False, 'error': 'User does not have access to this list'}), 403
+            
+            list_name = cursor.execute('SELECT name FROM grocery_lists WHERE list_id = ?', (list_id,)).fetchone()[0]
+        
             if update_list_modified_date(cursor, list_id):
-                #logger.info('about to delete')
+                # Delete item from grocery_list_items
                 cursor.execute('DELETE FROM grocery_list_items WHERE list_id = ? AND item_id = ?', (list_id, item_id))
                 
+                # Create notification for other users of list
                 item_name = cursor.execute('SELECT name FROM items WHERE item_id = ?', (item_id,)).fetchone()[0]
-                
                 create_notifications_for_users_of_list(
                     cur=cursor,
                     list_id=list_id,
@@ -1012,14 +1123,37 @@ def delete_item():
                 )
                 
                 logger.info(f"Item with ID {item_id} deleted successfully")
-                return jsonify({'success': True}), 200
+                
         except Exception as e:
-            return jsonify({'success': False, 'error': 'Error deleting item'})
-        #finally:
-        #    conn.close()
+            logger.error(f"Error deleting item in list {list_id}: {e}")
+            return jsonify({'success': False, 'error': f'Error deleting item: {e}'}), 500
+        
+    return jsonify({'success': True}), 200
 
 @app.route('/list/add_user_to_list', methods=['POST'])
 def add_user_to_list():
+    """
+    Adds a user to an existing grocery list.
+    
+    This endpoint is called when a user accepts an invitation notification for 
+    joining a certain list. The notification can have extra data attached to it, such as
+    the user's new role for the list if they accept it.
+
+    ---
+    Request JSON Parameters:
+    - `currentListId` (int): The list's ID.
+    - `username` (str): The user's username.
+    - `notif_data` (dict): A dictionary primarily for retrieving the new user's role in the list.
+
+    Returns:
+    - `200 OK` and JSON `{ success: True, message: str }` on success.
+    - `400 Bad Request` and JSON `{ success: False, error: str }` if list ID or username are missing.
+    - `401 Unauthorized` and JSON `{ success: False, error: str }` if the user is not logged in.
+    - `500 Internal Server Error` and JSON `{ success: False, error: str }` if a database or unexpected error occurs.
+
+    Raises:
+    - None directly, but returns error messages for authentication or database failures.
+    """
     if 'user_id' not in session:
         return jsonify({'success': False, 'error': 'User not logged in.'}), 401
     
@@ -1028,22 +1162,46 @@ def add_user_to_list():
     username = data.get('username')
     notif_data = json.loads(data.get('data', {}))
     
-    logger.info(f"Notif_data: {notif_data}\tVar type: {type(notif_data)}")
-    
-    #logger.info(f"Adding user {new_user} to list {list_id}")
+    if not list_id or not username:
+        return jsonify({'success': False, 'error': 'List ID and username are required.'}), 400
     
     with get_db_conn() as conn:
         cursor = conn.cursor()
-        user_id = cursor.execute('SELECT user_id FROM users WHERE username = ?', (username,)).fetchone()[0]
-        role = notif_data.get('user_role', 'viewer').lower()
-        cursor.execute('''
-            INSERT OR IGNORE INTO grocery_list_users (list_id, user_id, role) VALUES (?, ?, ?)
-        ''', (list_id, user_id, role))
+        
+        try:
+            user_id = cursor.execute('SELECT user_id FROM users WHERE username = ?', (username,)).fetchone()[0]
+            role = notif_data.get('user_role', 'viewer').lower()
+            cursor.execute('''
+                INSERT OR IGNORE INTO grocery_list_users (list_id, user_id, role) VALUES (?, ?, ?)
+            ''', (list_id, user_id, role))
+        except Exception as e:
+            logger.error(f"Error adding user {username} to list {list_id}: {e}")
+            return jsonify({'success': False, 'error': f'Error adding user: {e}'}), 500
     
-    return jsonify({'success': True, 'message': f'Successfully added user {username} to list with id {list_id}'})
+    return jsonify({'success': True, 'message': f'Successfully added user {username} to list with id {list_id}'}), 200
 
 @app.route('/list/manage_users_of_list', methods=['POST'])
 def manage_users_of_list():
+    """
+    Updates the list of existing users attached to an existing grocery list.
+
+    ---
+    Request JSON Parameters:
+    - `currentListId` (int): The list's ID.
+    - `otherUsers` (list[dict], optional): A list of user objects to invite.  
+      Each object should include:
+        - `user_id` (int): The invited user's ID.  
+        - `role` (str): The role of the invited user in the list (e.g., `"editor"`, `"viewer"`).
+
+    Returns:
+    - `200 OK` and JSON `{ success: True, message: str }` on success.
+    - `400 Bad Request` and JSON `{ success: False, error: str }` if list ID is missing.
+    - `401 Unauthorized` and JSON `{ success: False, error: str }` if the user is not logged in.
+    - `500 Internal Server Error` and JSON `{ success: False, error: str }` if a database or unexpected error occurs.
+
+    Raises:
+    - None directly, but returns error messages for authentication or database failures.
+    """
     if 'user_id' not in session:
         return jsonify({'success': False, 'error': 'User not logged in.'}), 401
     
@@ -1051,89 +1209,107 @@ def manage_users_of_list():
     list_id = data.get('currentListId')
     other_users = data.get('otherUsers', [])
     
-    logger.info(f"Updating list {list_id}'s users: {other_users}")
-    
     with get_db_conn() as conn:
         cursor = conn.cursor()
         
-        list_name = cursor.execute('''
-            SELECT name
-            FROM grocery_lists
-            WHERE list_id = ?                           
-        ''', (list_id,)).fetchone()[0]
+        if not list_id:
+            return jsonify({'success': False, 'error': 'List ID is required.'}), 400
         
-        old_other_users = cursor.execute('''
-            SELECT user_id, role
-            FROM grocery_list_users
-            WHERE list_id = ? AND user_id != ?
-        ''', (list_id, session.get('user_id'))).fetchall()
-        
-        logger.info(f"Old other users: {old_other_users}") # list of (user_id, role) tuples
-        logger.info(f"New other users: {other_users}") # list of {'user_id': ..., 'username': ..., 'role': ...} dicts
-        
-        old_users_dict = {u[0]: u[1].lower() for u in old_other_users}
-        new_users_dict = {u['user_id']: u['role'].lower() for u in other_users}
+        try:
+            list_name = cursor.execute('''
+                SELECT name
+                FROM grocery_lists
+                WHERE list_id = ?                           
+            ''', (list_id,)).fetchone()[0]
+            
+            old_other_users = cursor.execute('''
+                SELECT user_id, role
+                FROM grocery_list_users
+                WHERE list_id = ? AND user_id != ?
+            ''', (list_id, session.get('user_id'))).fetchall()
+            
+            # `old_other_users` is list of (user_id, role) tuples
+            # `other_users` is list of {'user_id': ..., 'username': ..., 'role': ...} dicts
+            
+            # Determiine which users were added/removed, and which users had roles changed
+            old_users_dict = {u[0]: u[1].lower() for u in old_other_users}
+            new_users_dict = {u['user_id']: u['role'].lower() for u in other_users}
 
-        added_user_ids = [u_id for u_id in new_users_dict if u_id not in old_users_dict]
-        removed_user_ids = [u_id for u_id in old_users_dict if u_id not in new_users_dict]
-        changed_roles = {
-            u_id: (old_users_dict[u_id], new_users_dict[u_id])
-            for u_id in old_users_dict.keys() & new_users_dict.keys()
-            if old_users_dict[u_id] != new_users_dict[u_id]
-        }
-        
-        #added_user_ids = [user['user_id'] for user in added_users]
-        create_notifications_for_users(
-            cur=cursor,
-            user_ids=added_user_ids,
-            message=f"{session['username']} invites you to grocery list '{list_name}'.",
-            icon=NotificationType.INVITE.value,
-            actionable=True,
-            action_type=ActionableNotificationType.JOIN_LIST_REQUEST.value,
-            requested_list_id=list_id
-        )
-        
-        #removed_user_ids = [user['user_id'] for user in removed_users]
-        create_notifications_for_users(
-            cur=cursor,
-            user_ids=removed_user_ids,
-            message=f"{session['username']} removed you from grocery list '{list_name}'.",
-            icon=NotificationType.DELETE.value
-        )
-        
-        for user_id in removed_user_ids:
-            cursor.execute('''
-                DELETE FROM grocery_list_users
-                WHERE list_id = ? AND user_id = ?
-            ''', (list_id, user_id))
-        
-        for user_id, (old_role, new_role) in changed_roles.items():
-            create_notification(
+            added_user_ids = [u_id for u_id in new_users_dict if u_id not in old_users_dict]
+            removed_user_ids = [u_id for u_id in old_users_dict if u_id not in new_users_dict]
+            changed_roles = {
+                u_id: (old_users_dict[u_id], new_users_dict[u_id])
+                for u_id in old_users_dict.keys() & new_users_dict.keys()
+                if old_users_dict[u_id] != new_users_dict[u_id]
+            }
+            
+            # Send notifications to users added to list
+            create_notifications_for_users(
                 cur=cursor,
-                user_id=user_id,
-                message=f"{session['username']} changed your role from '{old_role.capitalize()}' to '{new_role.capitalize()}' in grocery list '{list_name}'.",
-                icon=NotificationType.EDIT.value
+                user_ids=added_user_ids,
+                message=f"{session['username']} invites you to grocery list '{list_name}'.",
+                icon=NotificationType.INVITE.value,
+                actionable=True,
+                action_type=ActionableNotificationType.JOIN_LIST_REQUEST.value,
+                requested_list_id=list_id
             )
-            cursor.execute('''
-               UPDATE grocery_list_users
-               SET role = ?
-               WHERE user_id = ? AND list_id = ?            
-            ''', (new_role, user_id, list_id))
+            
+            # Send notifications to users removed from list
+            create_notifications_for_users(
+                cur=cursor,
+                user_ids=removed_user_ids,
+                message=f"{session['username']} removed you from grocery list '{list_name}'.",
+                icon=NotificationType.DELETE.value
+            )
+            
+            # Delete removed users from list
+            for user_id in removed_user_ids:
+                cursor.execute('''
+                    DELETE FROM grocery_list_users
+                    WHERE list_id = ? AND user_id = ?
+                ''', (list_id, user_id))
+            
+            # Handle any users whose roles were changed
+            for user_id, (old_role, new_role) in changed_roles.items():
+                create_notification(
+                    cur=cursor,
+                    user_id=user_id,
+                    message=f"{session['username']} changed your role from '{old_role.capitalize()}' to '{new_role.capitalize()}' in grocery list '{list_name}'.",
+                    icon=NotificationType.EDIT.value
+                )
+                cursor.execute('''
+                UPDATE grocery_list_users
+                SET role = ?
+                WHERE user_id = ? AND list_id = ?            
+                ''', (new_role, user_id, list_id))
+        except Exception as e:
+            logger.error(f"Error managing users in list {list_id}: {e}")
+            return jsonify({'success': False, 'error': f'Error managing users: {e}'}), 500
     
-    return jsonify({'success': True, 'message': f'Successfully added users to list with id {list_id}'})
+    return jsonify({'success': True, 'message': f'Successfully added users to list with id {list_id}'}), 200
 
 @app.route('/list/get_item_suggestions', methods=['GET'])
 def get_item_suggestions():
-    # Retrieve (item_id, name) from items table for all items 
-    # whose name matches the query string (case insensitive, partial match)
+    """
+    Retrieves suggestions of existing items based on an input query.
+    
+    This endpoint is called asyncronously to find item names in the database which have 
+    matching portions with the query. This operation is case-insensitive.
+
+    ---
+    Request JSON Arguments:
+    - `query` (int): The item name query.
+
+    Returns:
+    - `200 OK` and JSON `{ success: True, items: list[dict] }` on success.
+    - `500 Internal Server Error` if a database or unexpected error occurs.
+    """
 
     query = request.args.get('query', '').lower()
     
-    logger.info(f"Item suggestions endpoint reached with query: {query}")
-    
     with get_db_conn() as conn:
-        #items = conn.execute('SELECT item_id, name FROM items WHERE name LIKE ?', (f'%{query}%',)).fetchall()
         cursor = conn.cursor()
+        
         items = cursor.execute(
             '''
             SELECT item_id, name, category_id
@@ -1143,19 +1319,29 @@ def get_item_suggestions():
             ''',
             (f'%{query}%', query)
         ).fetchall()
-        #conn.close()
         
         items_list = [{'item_id': item[0], 'name': item[1], 'category_id': item[2]} for item in items]
         logger.info(f"Item suggestions for query '{query}': {items_list}")
-    return jsonify({'success': True, 'items': items_list})
+    return jsonify({'success': True, 'items': items_list}), 200
 
 @app.route('/list/get_user_suggestions', methods=['GET'])
 def get_user_suggestions():
-    # Retrieve usernames from users table based on query string (case insensitive, partial match)
+    """
+    Retrieves suggestions of existing usernames based on an input query.
+    
+    This endpoint is called asyncronously to find usernames in the database which have 
+    matching portions with the query. This operation is case-insensitive.
+
+    ---
+    Request JSON Arguments:
+    - `query` (int): The user name query.
+
+    Returns:
+    - `200 OK` and JSON `{ success: True, users: list[dict] }` on success.
+    - `500 Internal Server Error` if a database or unexpected error occurs.
+    """
 
     query = request.args.get('query', '').lower()
-    
-    logger.info(f"User suggestions endpoint reached with query: {query}")
     
     with get_db_conn() as conn:
         cursor = conn.cursor()
@@ -1168,10 +1354,10 @@ def get_user_suggestions():
             ''',
             (f'{query}%', session['username'])
         ).fetchall()
-        #conn.close()
         
         users_list = [{'user_id': user[0], 'username': user[1], 'role': "Viewer"} for user in users]
         logger.info(f"User suggestions for query '{query}': {users_list}")
+        
     return jsonify({'success': True, 'users': users_list})
 
 
@@ -1189,7 +1375,6 @@ def update_list_modified_date(cur, list_id):
         return False
     
     return True
-
 
 def get_db_conn():
     return sqlite3.connect('grocery.db')

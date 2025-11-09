@@ -1,8 +1,35 @@
-import React, { useState, useContext } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Container, Nav, Navbar, Form, Button } from 'react-bootstrap';
+import { Container, Navbar, Form, Button } from 'react-bootstrap';
 import { register as apiRegister } from '../api/requests';
 
+/**
+ * RegisterPage Component
+ *
+ * @component
+ * @returns {JSX.Element} The rendered registration page for creating a new account.
+ *
+ * @description
+ * - Provides a form for users to **create a new account** by entering a username and password.
+ * - Validates input fields (username, password confirmation, and password requirements).
+ * - Displays descriptive error messages when validation or registration fails.
+ * - Redirects to the **LoginPage** upon successful registration, displaying a success message.
+ * - Includes optional password strength rules (currently disabled during development).
+ * - Uses **Bootstrap** components for layout, form structure, and responsive design.
+ *
+ * @uses useNavigate - For navigating back to the login page or onward after registration.
+ * @uses apiRegister - Backend API request function to register a new user.
+ *
+ * @state
+ * - `username`: Current username input value.
+ * - `password`: Current password input value.
+ * - `confirmPassword`: Re-entered password for confirmation.
+ * - `error`: Message displayed when validation or registration fails.
+ *
+ * @example
+ * // Example usage within a route:
+ * <Route path="/register" element={<RegisterPage />} />
+ */
 function RegisterPage() {
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
@@ -51,6 +78,7 @@ function RegisterPage() {
       return;
     }
 
+    /* Password requirements - DISABLED DURING DEVELOPMENT */
     /*const allValid = Object.values(passwordRules).every(rule => rule.test(password));
     if (!allValid) {
       setError("Password does not meet all requirements.");

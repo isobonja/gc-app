@@ -10,11 +10,63 @@ import {
   Button,
 } from "react-bootstrap";
 
-import { capitalize, convertUTCToLocal, formatListUserDisplay } from "../util/utils";
-
+import { capitalize, formatListUserDisplay } from "../util/utils";
 import { DASHBOARD_TABLE_HEADERS, isOwner } from "../constants/constants";
 import { useTheme } from "../context/ThemeContext";
 
+/**
+ * Displays a responsive, sortable table of grocery lists on the dashboard.
+ *
+ * Each row represents a grocery list and includes its name, sharing type, user role,
+ * last updated date, and available actions (edit/delete). The table supports both
+ * light and dark themes via the `useTheme` context.
+ *
+ * Shared lists display a tooltip listing other users the list is shared with.
+ * Clicking on a row (outside the action buttons) triggers a navigation or detail view.
+ *
+ * @component
+ * @param {Object} props
+ * @param {Array<Object>} props.lists - Array of grocery list objects to display.
+ * @param {number} props.lists[].id - Unique identifier of the grocery list.
+ * @param {string} props.lists[].name - Name of the grocery list.
+ * @param {string} props.lists[].role - Current user’s role in the list (e.g., `"Owner"`, `"Editor"`, `"Viewer"`).
+ * @param {string} props.lists[].last_updated - ISO string or formatted date of last update.
+ * @param {Array<Object>} props.lists[].other_users - List of other users the grocery list is shared with.
+ * @param {string} props.lists[].other_users[].username - The username of a shared user.
+ * @param {Function} props.handleListClick - Callback triggered when a table row is clicked.
+ *   Receives the list’s `id` as an argument.
+ * @param {Function} props.handleListEdit - Callback triggered when the Edit button is clicked.
+ *   Receives the entire list object as an argument.
+ * @param {Function} props.handleListDelete - Callback triggered when the Delete button is clicked.
+ *   Receives the list’s `id` as an argument.
+ * @param {Function} props.onSort - Callback triggered when a column header is clicked for sorting.
+ *
+ * @example
+ * const lists = [
+ *   {
+ *     id: 1,
+ *     name: "Weekly Groceries",
+ *     role: "Owner",
+ *     last_updated: "2025-10-08 14:30",
+ *     other_users: [{ username: "Alice" }, { username: "Bob" }]
+ *   },
+ *   {
+ *     id: 2,
+ *     name: "Camping Supplies",
+ *     role: "Viewer",
+ *     last_updated: "2025-10-07 09:15",
+ *     other_users: []
+ *   }
+ * ];
+ *
+ * <DashboardListTable
+ *   lists={lists}
+ *   handleListClick={(id) => console.log("Clicked list", id)}
+ *   handleListEdit={(list) => console.log("Editing", list.name)}
+ *   handleListDelete={(id) => console.log("Deleting list", id)}
+ *   onSort={(column) => console.log("Sorting by", column)}
+ * />
+ */
 function DashboardListTable({ lists, handleListClick, handleListEdit, handleListDelete, onSort}) {
 
   const { theme } = useTheme();

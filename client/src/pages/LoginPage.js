@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Container, Nav, Navbar, Form, Button } from 'react-bootstrap';
+import { Container, Navbar, Form, Button } from 'react-bootstrap';
 import { UserContext } from '../context/UserContext';
 
 import CenterSpinner from '../components/CenterSpinner';
@@ -10,6 +10,37 @@ import {
   getSession,
 } from '../api/requests';
 
+/**
+ * LoginPage Component
+ *
+ * @component
+ * @returns {JSX.Element} The rendered login page for user authentication.
+ *
+ * @description
+ * - Handles user authentication by validating credentials with the backend API.
+ * - Automatically redirects authenticated users to the **Dashboard**.
+ * - Displays status messages (e.g., from redirects after logout or registration).
+ * - Provides a “Keep me logged in” toggle that controls session persistence.
+ * - Uses **Bootstrap** components for responsive form layout and styling.
+ * - Shows a centered loading spinner while verifying session status on mount.
+ *
+ * @uses useContext(UserContext) - For managing the logged-in user state.
+ * @uses useNavigate - To redirect users after login or registration.
+ * @uses useLocation - To access navigation state (e.g., success messages).
+ * @uses CenterSpinner - To display a full-page loading indicator.
+ *
+ * @state
+ * - `username`: Current username input value.
+ * - `password`: Current password input value.
+ * - `keepLoggedIn`: Boolean toggle for persistent login.
+ * - `error`: Error message displayed when login fails.
+ * - `success`: Message displayed after successful actions (e.g., registration).
+ * - `loading`: Boolean tracking session check completion before rendering form.
+ *
+ * @example
+ * // Example usage within a route:
+ * <Route path="/login" element={<LoginPage />} />
+ */
 function LoginPage() {
   const navigate = useNavigate();
 
@@ -55,12 +86,11 @@ function LoginPage() {
 
     setError('');
 
-    console.log(`Username: ${username}, Password: ${password}`);
-
     try {
       const data = await apiLogin(username, password, keepLoggedIn);
 
       if (data.success) {
+        console.log("Successful login");
         setUser({ username: data.username, currentListId: data.currentListId });
         navigate('/dashboard');
       } else if (data.error) {

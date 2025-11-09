@@ -3,6 +3,31 @@ import axios from "axios";
 import { getItemSuggestions } from "../api/requests";
 import { categoryIdToName } from "../util/utils";
 
+/**
+ * Custom React hook to manage item suggestions for an input field.
+ *
+ * @param {string} currentName - The current input value for the item name.
+ * @param {Array<Object>} categories - List of available categories, used to resolve category names.
+ * @param {Function} setItem - Setter function to update the selected item object.
+ *
+ * @returns {{
+ *   suggestions: Array<Object>,
+ *   visible: boolean,
+ *   handleClick: (suggestion: Object) => void
+ * }} - Returns an object containing:
+ *   - `suggestions`: Array of suggested items fetched from the backend.
+ *   - `visible`: Whether the suggestions dropdown should be visible.
+ *   - `handleClick`: Function to call when a suggestion is selected.
+ *
+ * @example
+ * const { suggestions, visible, handleClick } = useItemSuggestions(itemName, categories, setItem);
+ *
+ * @description
+ * - Automatically fetches item suggestions when `currentName` changes and has ≥ 2 characters.
+ * - Debounces API calls by 300ms to prevent excessive requests.
+ * - Cancels previous API calls if a new one is triggered (via `AbortController`).
+ * - On suggestion click, updates the item’s `name`, `category`, and `id` using the provided setter.
+ */
 export function useItemSuggestions(currentName, categories, setItem) {
   const [suggestions, setSuggestions] = useState([]);
   const [visible, setVisible] = useState(false);

@@ -7,11 +7,55 @@ import {
 
 import UserSelector from "./UserSelector";
 
+/**
+ * A modal component for creating or editing a grocery list and managing its shared users.
+ *
+ * This component displays a Bootstrap modal with a form for entering a list name and
+ * selecting additional users to share the list with. It is used both for creating
+ * new lists and editing existing ones, depending on whether a `list` prop is provided.
+ *
+ * The component validates input (ensuring a non-empty list name), resets state when
+ * closed or reopened, and passes the final form data to the parent via `onFormSubmit`.
+ *
+ * @component
+ * @param {Object} props
+ * @param {boolean} props.show - Controls whether the modal is visible.
+ * @param {Function} props.handleClose - Callback to close the modal.
+ * @param {string} [props.title="Manage List"] - The title displayed in the modal header.
+ * @param {string} [props.submitButtonText="Submit"] - The text for the primary submit button.
+ * @param {Function} props.onFormSubmit - Callback fired when the form is successfully submitted.  
+ *   Receives an object `{ listId, listName, otherUsers }`.
+ * @param {Object|null} [props.list=null] - Optional existing list object to edit.  
+ *   If provided, pre-fills the form fields.
+ * @param {number} [props.list.id] - Unique ID of the list (used when editing).
+ * @param {string} [props.list.name] - The name of the existing list.
+ * @param {Array<Object>} [props.list.other_users] - List of users the list is shared with.
+ *
+ * @example
+ * const handleFormSubmit = async ({ listId, listName, otherUsers }) => {
+ *   console.log("Submitting:", listId, listName, otherUsers);
+ *   // Send to API or update state
+ * };
+ *
+ * <ManageListModal
+ *   show={true}
+ *   handleClose={() => setShow(false)}
+ *   title="Edit Grocery List"
+ *   submitButtonText="Save Changes"
+ *   onFormSubmit={handleFormSubmit}
+ *   list={{
+ *     id: 1,
+ *     name: "Weekly Groceries",
+ *     other_users: [{ id: 2, username: "jane_doe" }]
+ *   }}
+ * />
+ */
 function ManageListModal({ show, handleClose, title, submitButtonText, onFormSubmit, list=null }) {
   const [listName, setListName] = useState("");
   const [otherUsers, setOtherUsers] = useState([]);
   const [error, setError] = useState(null);
 
+  // Set input field values when Modal opens, if applicable
   useEffect(() => {
     if (list !== null && show) {
       setListName(list.name);
@@ -25,6 +69,7 @@ function ManageListModal({ show, handleClose, title, submitButtonText, onFormSub
     }
   }, [show, list]);
 
+  // Handle form submit
   const handleSubmit = async (e) => {
     e.preventDefault();
 

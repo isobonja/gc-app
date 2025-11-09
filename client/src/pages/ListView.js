@@ -1,8 +1,7 @@
 import React, { useEffect, useState, useContext, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min';
-//import { BsGear } from "react-icons/bs";
 
 import { 
   Container, 
@@ -14,12 +13,9 @@ import {
   Dropdown
 } from 'react-bootstrap';
 
-import ListTable from '../components/ListTable';
-import UserNavbar from '../components/UserNavbar';
-import CenterSpinner from '../components/CenterSpinner';
-import ManageUsersModal from '../components/ManageUsersModal';
 import { UserContext } from '../context/UserContext';
 import { useToasts } from '../context/ToastProvider';
+import { useTheme } from '../context/ThemeContext';
 
 import {
   fetchCategories,
@@ -33,34 +29,71 @@ import {
 
 import { useItemSuggestions } from "../hooks/useItemSuggestions";
 
-import { categoryIdToName, convertUTCToLocal, sortArray } from '../util/utils';
+import ListTable from '../components/ListTable';
+import UserNavbar from '../components/UserNavbar';
+import CenterSpinner from '../components/CenterSpinner';
+import ManageUsersModal from '../components/ManageUsersModal';
 
+import { categoryIdToName, convertUTCToLocal, sortArray } from '../util/utils';
 import { 
   SUGGESTIONS_MAX_SHOW, 
   canManageUsers,
   canEdit,
  } from '../constants/constants';
-import { useTheme } from '../context/ThemeContext';
 
-
+// TODO: Move this to /constants/
 const emptyItem = { name: "", category: "", quantity: 1, id: null };
 
+/**
+ * ListView Component
+ *
+ * @component
+ * @returns {JSX.Element} The rendered grocery list view page.
+ *
+ * @description
+ * - Displays the contents of a selected grocery list for the logged-in user.
+ * - Allows users with appropriate permissions to **add**, **edit**, and **delete** items.
+ * - Supports **category filtering**, **item sorting**, and **auto-suggestions** for item names.
+ * - Provides a modal for **managing shared users** and their permissions.
+ * - Dynamically updates when the list or its items change.
+ * - Integrates loading spinners and toast notifications for user feedback.
+ *
+ * @uses useContext(UserContext) - For accessing the current user and list info.
+ * @uses useToasts - For showing success and error notifications.
+ * @uses useParams - To retrieve the current list ID from the URL.
+ * @uses useItemSuggestions - For intelligent item name auto-completion.
+ * @uses useSortableData - For sorting the displayed list items.
+ * @uses useUserSuggestions - For searching and adding list collaborators.
+ *
+ * @state
+ * - `items`: Array of all items in the current grocery list.
+ * - `categories`: Available category options for the list.
+ * - `users`: Array of users who have access to the list.
+ * - `currentItem`: Object for storing the item currently being edited or added.
+ * - `loading`: Boolean indicating whether data is being fetched.
+ * - `showEditModal` / `showUserModal`: Control modal visibility states.
+ * - `sortConfig`: Current sorting configuration (key, ascending).
+ * - `error`: Stores any error messages for failed data operations.
+ *
+ * @example
+ * // Example usage within a route:
+ * <Route path="/list/:listId" element={<ListView />} />
+ */
 function ListView() {
-  //const navigate = useNavigate();
   const { listId } = useParams();
-  /** State Variables **/
+  
+  // User context
   const { user, setUser } = useContext(UserContext);
   const [userRole, setUserRole] = useState("Viewer");
 
+  // User's preferred app theme
   const { theme } = useTheme();
 
+  // Toast provider
   const { addToast } = useToasts();
 
-  // Page reload
+  // Page reload flag
   const [reload, setReload] = useState(false);
-
-  // Currently displayed list ID
-  //const [currentListId, setCurrentListId] = useState(user.currentListId || null);
 
   // List of categories
   // each category is {name, category_id}
@@ -69,6 +102,8 @@ function ListView() {
   // Items in user's current grocery list
   // each item is {name, category, quantity, item_id}
   const [itemsInList, setItemsInList] = useState([]);
+
+  // List data
   const [listName, setListName] = useState('');
   const [listModifiedDate, setListModifiedDate] = useState(null);
   const [listOtherUsers, setListOtherUsers] = useState([]); // list of objects with keys 'user_id', 'username', 'role'
@@ -84,8 +119,7 @@ function ListView() {
   // Snapshot of original values when Edit Item Modal opens
   const originalEdit = useRef({ name: '', category: '', quantity: 1, id: null });
 
-  // Error message
-  // *** Need to make more specific
+  // Error message when adding item
   const [addItemError, setAddItemError] = useState('');
 
   // Add item suggestions
@@ -106,8 +140,8 @@ function ListView() {
   const [editItemShow, setEditItemShow] = useState(false);
   const [editItemError, setEditItemError] = useState('');
 
+  // Show manage users modal flag
   const [showManageUsersModal, setShowManageUsersModal] = useState(false);
-
 
   // restore user from session on refresh
   useEffect(() => {
@@ -134,7 +168,7 @@ function ListView() {
       .catch(err => console.error(err));
   }, []);
 
-  // Fetch items in user's current grocery list and categories on component mount
+  // Fetch items in user's current grocery list and categories
   useEffect(() => {
     if (!listId) {
       if (!user?.currentListId) {
@@ -156,15 +190,13 @@ function ListView() {
         setListOtherUsers(data.otherUsers || []);
       })
       .catch(err => console.error(err));
-  }, [reload, listId]); // Run when component mounts or reload changes
+  }, [reload, listId]); // Run when component mounts, reload changes, or listId changes
 
   // Handle Add New Item form submission
   const handleAddItem = async (e) => {
     e.preventDefault();
 
     if(!user || !listId) {return;}
-
-    console.log(`item name: ${addItem.name}\tcategory: ${addItem.category}\tquantity: ${addItem.quantity}`);
 
     if (!addItem.name.trim()) {
       setAddItemError('Item name is required');
@@ -179,7 +211,6 @@ function ListView() {
     }
 
     try{
-      //const data = await apiAddItem(user.currentListId, addItem);
       const data = await apiAddItem(listId, addItem);
 
       if (data.error) {
@@ -197,10 +228,8 @@ function ListView() {
     }
   };
 
+  // Handle showing Edit Item modal
   const handleShowEditItem = async (item) => {
-    // Modal to edit item
-    console.log(`Edit item: ${item.name}, ${item.category}, ${item.quantity}, ${item.item_id}`);
-
     setEditItem(prev => ({
       ...prev,
       name: item.name,
@@ -219,12 +248,11 @@ function ListView() {
     setEditItemShow(true);
   };
 
+  // Handle Edit Item form submission
   const handleEditItemSubmit = async (e) => {
     e.preventDefault();
 
     if(!user || !listId) {return;}
-
-    console.log("Edit item modal Submit button pressed");
 
     if (!editItem.name.trim() || !editItem.category.trim()) {
       setEditItemError("Item name and category are required.");
@@ -238,15 +266,13 @@ function ListView() {
       Number(editItem.quantity) === Number(originalEdit.current.quantity);
 
     if (hasNoChanges) {
-      // Probably edit this to just close the Modal w/o making a request
       setEditItemError('No changes to any fields.');
       addToast('No changes to any fields.', 'error');
-      console.log('no changes');
+      console.log('No changes in Edit Item Modal...');
       return;
     }
 
     try {
-      //const data = await apiEditItem(user.currentListId, {
       const data = await apiEditItem(listId, {
         name: originalEdit.current.name,
         category: originalEdit.current.category,
@@ -275,6 +301,7 @@ function ListView() {
     }
   };
 
+  // Handle closing Edit Item Modal
   const handleCloseEditItem = () => {
     setEditItem(emptyItem);
     setEditItemError('');
@@ -282,20 +309,14 @@ function ListView() {
     originalEdit.current = { name: '', category: '', quantity: 1 };
   };
 
+  // Handle deleting item
   const handleDeleteItem = async (item) => {
-    // Delete grocery_list_item entry corresponding to item
-    console.log(`Item name: ${item.name}\tItem category: ${item.category}\tItem quantity: ${item.quantity}\tItem ID: ${item.item_id}`);
-    
     if(!user || !listId) {return;}
 
     try {
-      //const data = await apiDeleteItem(user.currentListId, item.item_id);
       const data = await apiDeleteItem(listId, item.item_id);
 
       if (data.error) {
-        //setError(response.data.error);
-        //need to set up error visual for deleting item
-        //probably a Toast?
         addToast('Error deleting item.', 'error');
       }
 
@@ -307,6 +328,7 @@ function ListView() {
     }
   };
 
+  // Handle sorting logic of grocery list items
   const [sortConfig, setSortConfig] = useState({ key: null, ascending: true });
 
   const handleSortItems = (sortBy) => {
@@ -326,9 +348,9 @@ function ListView() {
   const handleShowManageUsersModal = () => setShowManageUsersModal(true);
   const handleCloseManageUsersModal = () => setShowManageUsersModal(false);
   
+  // Handle Add Users Form Submit
+  // TODO: RENAME TO 'handleManageUsersFormSubmit'
   const handleAddUsersFormSubmit = async ({ otherUsers }) => {
-    console.log("Adding users to list...");
-
     try {
       const data = await manageUsersOfList({ listId, otherUsers });
       
@@ -346,14 +368,6 @@ function ListView() {
 
   return (
     <div id="main" className="d-flex flex-column min-vh-100">
-      {/*
-        <div id="main" data-bs-theme="dark" className="bg-dark text-light min-vh-100">
-        THIS IS HOW TO MAKE THE PAGE ACTUALLY DARK MODE
-        WOULD NEED TO MAKE CHANGES TO ALL PAGES, OR FIND A WAY TO ONLY IMPLEMENT A DARK MODE SWITCH ONCE
-
-        ALSO NEED TO SET UP LIGHT/DARK MODE SWITCH OPTION IN GENERAL
-        ALSO LOOK INTO CUSTOM COLORS
-      */}
       {/** Navigation Bar **/}
       <UserNavbar username={user.username} />
 
@@ -383,7 +397,7 @@ function ListView() {
           <Col xs="auto">
             <div className="d-flex align-items-center">
               <div className="d-flex align-items-center flex-wrap">
-                {/* NEED TO FIGURE OUT HOW TO PREEVENT THIS LABEL FROM CHANGING WHEN MODAL OPEN */}
+                {/* TODO: FIGURE OUT HOW TO PREVENT THIS LABEL FROM CHANGING WHEN MODAL OPEN */}
                 {(listOtherUsers.length > 0) ? (
                   <>
                     <small className="me-1">Shared with:</small>
@@ -415,7 +429,6 @@ function ListView() {
         </Row>
 
         <Row className="flex-fill">
-
           {/** Current Grocery List Table **/}
           <Col className="border mx-3 pt-3"  style={{ overflowY: 'scroll' }}>
             {itemsInList.length === 0 ? (
@@ -510,16 +523,18 @@ function ListView() {
                 </Button>
               </Form>
               ) : (
-                <p>Viewer Mode</p>
+                <>
+                  <p>Viewer Mode</p>
+                  {/* TODO: This is a temporary solution. If user has 'Viewer' role or lower prio role, 
+                    need to avoid showing Add Items form, either by removing it, or disabling the whole form */}
+                </>
               )
             }
-            
           </Col>
         </Row>
 
-
-
         {/** Edit Item Modal **/}
+        {/* TODO: Move to own component script, similar to ManageUsersModal */}
         <Modal show={editItemShow} onHide={handleCloseEditItem}>
           <Modal.Header closeButton>
             <Modal.Title>Edit Item</Modal.Title>
@@ -615,7 +630,6 @@ function ListView() {
           otherUsers={listOtherUsers} 
           setOtherUsers={setListOtherUsers}
         />  
-
       </Container>
     </div>
   );

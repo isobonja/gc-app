@@ -1,35 +1,73 @@
-import React, { useEffect, useState, useContext, useRef } from 'react';
+/**
+ * Dashboard Page
+ *
+ * The main user dashboard that displays all grocery lists the logged-in user
+ * has access to. Supports viewing lists in both table and grid layouts, sorting
+ * by column, creating new lists, editing existing ones, and deleting lists.
+ *
+ * @module Dashboard
+ */
+import React, { useEffect, useState, useContext } from 'react';
 import { useNavigate } from "react-router-dom";
-
-import { UserContext } from '../context/UserContext';
-import { useToasts } from '../context/ToastProvider';
 
 import { 
   Container, 
   Row, 
   Col, 
-  Card,
-  Badge,
   Button,
   ButtonGroup,
-  Dropdown,
   Form
 } from 'react-bootstrap';
 
-import UserNavbar from '../components/UserNavbar';
-import DashboardListGrid from '../components/DashboardListGrid';
-import CenterSpinner from '../components/CenterSpinner';
-import ManageListModal from '../components/ManageListModal';
+import { UserContext } from '../context/UserContext';
+import { useToasts } from '../context/ToastProvider';
 
 import { fetchUserLists,
   deleteList as apiDeleteList,
   createNewList,
   editList as apiEditList
 } from '../api/requests';
+
+import UserNavbar from '../components/UserNavbar';
+import DashboardListTable from '../components/DashboardListTable';
+import DashboardListGrid from '../components/DashboardListGrid';
+import CenterSpinner from '../components/CenterSpinner';
+import ManageListModal from '../components/ManageListModal';
+
 import { DASHBOARD_TABLE_HEADERS } from '../constants/constants';
 import { capitalize, convertUTCToLocal, sortArray } from '../util/utils';
-import DashboardListTable from '../components/DashboardListTable';
 
+/**
+ * Dashboard Component
+ *
+ * @component
+ * @returns {JSX.Element} The rendered Dashboard page.
+ *
+ * @description
+ * - Fetches all grocery lists available to the logged-in user on mount.
+ * - Supports both **list** and **grid** views.
+ * - Allows the user to **create**, **edit**, and **delete** grocery lists.
+ * - Lists can be **sorted** dynamically by any column.
+ * - Uses Bootstrap layout for responsive structure.
+ *
+ * @uses useToasts - For displaying user feedback notifications.
+ * @uses useContext(UserContext) - To access the logged-in user's info.
+ * @uses useNavigate - For navigating to individual list pages.
+ *
+ * @state
+ * - `lists`: Array of all user-accessible grocery lists.
+ * - `displayLists`: Sorted list data currently displayed.
+ * - `gotLists`: Boolean tracking if list data has been fetched.
+ * - `reload`: Trigger for re-fetching user lists after modifications.
+ * - `showNewListModal` / `showEditListModal`: Controls modal visibility.
+ * - `editListModalList`: Stores currently edited list data.
+ * - `sortConfig`: Sorting configuration (key, ascending).
+ * - `listViewActive`: Whether list view or grid view is active.
+ *
+ * @example
+ * // Example usage within a route:
+ * <Route path="/dashboard" element={<Dashboard />} />
+ */
 function Dashboard() {
   const navigate = useNavigate();
   const { addToast } = useToasts();
@@ -38,19 +76,21 @@ function Dashboard() {
   // user is object with username and currentListId
   const { user, setUser } = useContext(UserContext);
 
+  // Reload page flag
+  const [reload, setReload] = useState(false);
+
   // List of grocery lists user has access to
   // Array of objects with keys 'id', 'name', 'type', 'role', 'last_updated', 'other_users'
   //   'other_users' is array of objects with keys 'user_id', 'username', 'role'
   const [lists, setLists] = useState([]);
   const [displayLists, setDisplayLists] = useState([]);
   const [gotLists, setGotLists] = useState(false);
-  //const listsRef = useRef(lists);
 
   const [showNewListModal, setShowNewListModal] = useState(false);
   const [showEditListModal, setShowEditListModal] = useState(false);
   const [editListModalList, setEditListModalList] = useState(null);
-  const [reload, setReload] = useState(false);
 
+  // Flag for determining which type of dashboard view is active
   const [listViewActive, setListViewActive] = useState(true);
 
   // On mount, fetch lists user has access to
@@ -122,12 +162,7 @@ function Dashboard() {
   const handleNewListFormSubmit = async ({ listId, listName, otherUsers }) => {
     try {
       const data = await createNewList({ listName, otherUsers });
-      
-      /*if (data.success) {
-        setLists((prev) => [...prev, newList]);
-      } else {
-        console.error("Error creating new list:", data.message);
-      }*/
+
       setReload((prev) => !prev);
       addToast(`List "${listName}" created`, "success");
     } catch (err) {
@@ -168,6 +203,7 @@ function Dashboard() {
       ) : (
         <>
           <Container fluid className="ps-3 pt-3 ">
+            {/* Dashboard Options Row*/}
             <Row className="px-3 align-items-center">
               <Col xs="auto">
                 <h1>Your Lists</h1>
@@ -175,6 +211,8 @@ function Dashboard() {
               <Col>
                 <Button onClick={handleShowNewListModal}>Create New List</Button>
               </Col>
+
+              {/* Displays explicit sorting dropdowns if dashboard in Grid mode*/}
               {!listViewActive && 
                 <>
                   <Col xs="auto" className="ps-0 pe-2">
@@ -203,7 +241,7 @@ function Dashboard() {
               }
               
               <Col xs="auto">
-                {/* EVENTUALLY REPLACE TEXT WITH ICONS */}
+                {/* TODO: EVENTUALLY REPLACE TEXT WITH ICONS */}
                 <ButtonGroup className="gap-1">
                   <Button onClick={() => setListViewActive(true)}>List</Button>
                   <Button onClick={() => setListViewActive(false)}>Grid</Button>

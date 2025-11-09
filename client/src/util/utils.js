@@ -1,8 +1,10 @@
+/** Gets category name from ID */
 export const categoryIdToName = (id, categories) => {
   const category = categories.find(cat => cat.category_id === id);
   return category ? category.name : '';
 };
 
+/** Utility function for displaying other users of list */
 export const formatListUserDisplay = (otherUsers) => {
   /* otherUsers is an array of usernames */
   if (otherUsers.length === 0) return '';
@@ -17,6 +19,7 @@ export const formatListUserDisplay = (otherUsers) => {
   }
 };
 
+/** Capitalizes string */
 export const capitalize = (s) => {
   if (s === null || s === undefined) return '';
   return String(s)
@@ -28,6 +31,7 @@ export const capitalize = (s) => {
     .join('');
 };
 
+/** Sorts array by key, in either ascending or descending order */
 export const sortArray = (array, key, ascending = true) => {
   //console.log(`Array: ${JSON.stringify(array)}\nKey: ${key}`);
   if (!key) return array;
@@ -58,6 +62,7 @@ export const sortArray = (array, key, ascending = true) => {
   });
 };
 
+/** Converts UTC time to the user's local time */
 export function convertUTCToLocal(utcString, options = {
   dateStyle: "medium",
   timeStyle: "short"

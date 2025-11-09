@@ -18,6 +18,24 @@ import { getNotifications, addUserToList, deleteNotifications, markNotifications
 import { useToasts } from '../context/ToastProvider';
 import { useTheme } from '../context/ThemeContext';
 
+/**
+ * A responsive navigation bar for authenticated users.
+ *
+ * Displays the user's name, navigation controls, notifications, theme toggle, and logout options.
+ * The component manages fetching, paginating, marking, and deleting notifications.
+ * Integrates with multiple contexts and hooks for navigation, theming, authentication, and toasts.
+ *
+ * @component
+ * @param {Object} props
+ * @param {string} props.username - The current user's username to display in the navbar.
+ *
+ * @example
+ * return (
+ *   <UserNavbar username="user1" />
+ * )
+ *
+ * @returns {JSX.Element} The user navigation bar with notification and account controls.
+ */
 function UserNavbar({ username }) {
   const { theme, toggleTheme } = useTheme();
 
@@ -50,10 +68,9 @@ function UserNavbar({ username }) {
     };
 
     fetchNotifications();
-
-    
   }, [refetch]);
 
+  // Update displayed notifs based on page of notification menu
   useEffect(() => {
     setUnreadCount(notifications.filter(n => n.unread).length);
     setTotalNotificationPages(Math.ceil(notifications.length / NOTIFICATIONS_PER_PAGE));
@@ -62,32 +79,24 @@ function UserNavbar({ username }) {
       (currentNotificationPage - 1) * NOTIFICATIONS_PER_PAGE,
       currentNotificationPage * NOTIFICATIONS_PER_PAGE
     ));
-  //}, [notifications]);
   }, [notifications, currentNotificationPage]);
 
+  // Navigate to user dashboard
   const goToDashboard = () => {
     navigate("/dashboard");
   };
 
+
   const handleNotificationDropdownToggle = (isOpen) => {
     console.log("Notification dropdown is now", isOpen ? "open" : "closed");
     if (!isOpen) {
-      // Update notifications as read server-side
-      // Would need to then retrieve updated notifs
-
-      // Get all currently displayed notifications and mark them as read
-      // Each page has max of 5 notifications, so only change those
-
-      //setUnreadCount(0);
-      //setNotifications([]);
       handleMarkAsRead();
       setCurrentNotificationPage(1);
       setRefetch(!refetch);
-    } else {
-      //setCurrentNotificationPage(1);
-    }
+    } 
   };
 
+  // Mark currently displayed notifications as read
   const handleMarkAsRead = async () => {
     const paginatedNotificationIds = paginatedNotifications
       .filter(n => n.unread)
@@ -103,12 +112,12 @@ function UserNavbar({ username }) {
 
     try {
       await markNotificationsAsRead(paginatedNotificationIds);
-      // Update local state
     } catch (err) {
       console.error("Error marking notifications as read:", err);
     }
   };
 
+  // Handle deleting notifications
   const handleNotificationDelete = async (notification) => {
     try{
       await deleteNotifications([notification.id]);
@@ -118,7 +127,6 @@ function UserNavbar({ username }) {
       console.error("Error deleting notification:", err);
     }
   };
-  
 
   return (
     <Navbar expand="lg" className="bg-primary ps-3">
@@ -280,9 +288,6 @@ function UserNavbar({ username }) {
           </Nav>
           
           <Nav>
-            {/*<Button type="button" variant="outline-light" onClick={logout}>
-              Log Out
-            </Button>*/}
             <Dropdown align="end">
               <Dropdown.Toggle
                 id="settings-dropdown"
@@ -308,10 +313,6 @@ function UserNavbar({ username }) {
 
                 <Dropdown.Divider />
 
-                {/* Log Out */}
-                {/*<Dropdown.Item className="bg-danger" onClick={logout}>
-                  <i className="bi bi-box-arrow-right me-2"></i> Log Out
-                </Dropdown.Item>*/}
                 <Dropdown.Item 
                   className="m-0 p-0 d-flex px-2" 
                   style={{
