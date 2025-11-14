@@ -102,7 +102,7 @@ export const manageUsersOfList = async ({ listId, otherUsers }) => {
 };
 
 // Retrieve user's notifications
-export const getNotifications = async() => {
+export const getNotifications = async () => {
   const res = await api.get("/get_notifications");
   return res.data;
 };
