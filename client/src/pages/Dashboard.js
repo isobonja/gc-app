@@ -197,7 +197,7 @@ function Dashboard() {
 
   return (
     <div className="d-flex flex-column min-vh-100">
-      <UserNavbar username={user ? user.username : null} />
+      <UserNavbar username={user ? user.username : null} setReload={setReload} />
       {!gotLists ? (
         <CenterSpinner />
       ) : (

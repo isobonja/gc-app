@@ -36,7 +36,7 @@ import { useTheme } from '../context/ThemeContext';
  *
  * @returns {JSX.Element} The user navigation bar with notification and account controls.
  */
-function UserNavbar({ username }) {
+function UserNavbar({ username, setReload }) {
   const { theme, toggleTheme } = useTheme();
 
   // Each notification is a dict with keys: id, icon, message, actionable, action_type, requested_list_id, unread, created_at, data
@@ -161,7 +161,7 @@ function UserNavbar({ username }) {
                 )}
               </Dropdown.Toggle>
 
-              <Dropdown.Menu variant="dark" className="dropdown-menu-end mt-2" style={{ width: '500px', minWidth: '250px' }}>
+              <Dropdown.Menu variant={theme} className="dropdown-menu-end mt-2" style={{ width: '500px', minWidth: '250px' }}>
                 <Dropdown.Header>Notifications</Dropdown.Header>
                 <Dropdown.Divider />
 
@@ -227,6 +227,7 @@ function UserNavbar({ username }) {
                                 addToast("Successfully joined the list!", "success");
                                 // Remove notification from list
                                 handleNotificationDelete(n);
+                                setReload(prev => !prev);
                               })
                               .catch(error => {
                                 console.error("Error adding user to list:", error);

@@ -212,19 +212,19 @@ function ListView() {
 
     try{
       const data = await apiAddItem(listId, addItem);
-
-      if (data.error) {
-        setAddItemError(data.error);
-        addToast(data.error, 'error');
-      } else {
+      if (data.success) {
         addToast(`Item ${addItem.name} added successfully!`, 'success');
         setAddItemError('');
         setAddItem(emptyItem);
         setReload(!reload);
       }
     } catch (err) {
-      setAddItemError('Failed to add item');
-      addToast('Failed to add item', 'error');
+      const backendError = err.response?.data?.error;
+      if (backendError) {
+        setAddItemError(backendError);
+      } else {
+        setAddItemError('Failed to add item');
+      }
     }
   };
 

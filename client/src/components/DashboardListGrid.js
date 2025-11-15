@@ -69,7 +69,8 @@ function DashboardListGrid({ lists, handleListClick, handleListEdit, handleListD
           >
             <div className="text-center mt-4 mb-1 flex-grow-1">
               <h2 className="mb-2">{list.name}</h2>
-              <p className="mb-1">Last updated: {list.last_updated}</p>
+              <p className="mb-1"><i>Last updated: {list.last_updated}</i></p>
+              <p>{list.role}</p>
               <small className="text-muted"><i>
                 {list.other_users.length > 0 
                   ? <>Shared with: {formatListUserDisplay(list.other_users)}</>

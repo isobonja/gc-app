@@ -4,7 +4,8 @@ import 'bootstrap/dist/js/bootstrap.bundle.min';
 
 import { 
   Table,
-  Button
+  Button,
+  Form
 } from 'react-bootstrap';
 
 import { capitalize } from '../util/utils';
@@ -57,11 +58,16 @@ function ListTable({ items, onItemEdit, onItemDelete, disableButtons, onSort }) 
   const { theme } = useTheme();
 
   return (
-    <Table bordered hover striped variant={theme === "light" ? "secondary" : "dark"} >
+    <Table bordered hover striped variant={theme === "light" ? "secondary" : "dark"} className="table-fixed">
       <thead className={theme === "light" ? "table-primary" : "table-dark"} >
         <tr>
+          <th style={{ width: '5%' }}>✓</th>
           {LIST_TABLE_HEADERS.map((key) => (
-            <th key={key} onClick={() => onSort(key)} style={{ cursor: 'pointer' }}>{capitalize(key)}</th>
+            <th key={key} style={{ position: "relative" }}>
+              <div onClick={() => onSort(key)} style={{ cursor: "pointer" }}>
+                {capitalize(key)}
+              </div>
+            </th>
           ))}
           <th style={{ width: '20%' }}>Actions</th>
         </tr>
@@ -69,6 +75,9 @@ function ListTable({ items, onItemEdit, onItemDelete, disableButtons, onSort }) 
       <tbody>
         {items.map((item, idx) => (
           <tr key={idx} className="align-middle">
+            <td className=''>
+              <Form.Check />
+            </td>
             {LIST_TABLE_HEADERS.map((key) => (
               <td key={key}>{capitalize(item[key])}</td>
             ))}
