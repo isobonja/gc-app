@@ -76,3 +76,8 @@ export function convertUTCToLocal(utcString, options = {
     return null;
   }
 }
+
+export function makePrettyFilename(prefix = "export") {
+  const now = new Date();
+  return `${prefix}-${now.toLocaleString().replace(/[/, :]/g, "_")}`;
+}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min';
 
@@ -12,6 +12,7 @@ import { capitalize } from '../util/utils';
 
 import { LIST_TABLE_HEADERS } from '../constants/constants';
 import { useTheme } from '../context/ThemeContext';
+import { all } from 'axios';
 
 /**
  * Displays a table of grocery list items with sorting and action controls.
@@ -30,6 +31,8 @@ import { useTheme } from '../context/ThemeContext';
  * @param {string} props.items[].category - The category of the grocery item.
  * @param {string|number} props.items[].quantity - The quantity or amount of the item.
  * @param {number} props.items[].item_id - Unique identifier for the item.
+ * @param {Function} props.onItemSelect - Callback fired when an item checkbox is selected.  
+ *   Receives the full `item` object as an argument.
  * @param {Function} props.onItemEdit - Callback fired when the Edit button is clicked.  
  *   Receives the full `item` object as an argument.
  * @param {Function} props.onItemDelete - Callback fired when the Delete button is clicked.  
@@ -52,16 +55,33 @@ import { useTheme } from '../context/ThemeContext';
  *   onSort={(key) => console.log("Sorting by", key)}
  * />
  */
-function ListTable({ items, onItemEdit, onItemDelete, disableButtons, onSort }) {
+function ListTable({ items, onItemSelect, onItemEdit, onItemDelete, disableButtons, onSort }) {
   // items is an array of objects, each object has keys: name, category, quantity, item_id
 
   const { theme } = useTheme();
+
+  const [allSelected, setAllSelected] = useState(false);
+
+  useEffect(() => {
+    setAllSelected(items.every(item => item.selected));
+  }, [items]);
 
   return (
     <Table bordered hover striped variant={theme === "light" ? "secondary" : "dark"} className="table-fixed">
       <thead className={theme === "light" ? "table-primary" : "table-dark"} >
         <tr>
-          <th style={{ width: '5%' }}>✓</th>
+          <th style={{ width: '4%' }}>
+            <Form.Check 
+              type="checkbox"
+              id={`all-item-check`} 
+              checked={allSelected} 
+              onChange={() => (
+                allSelected
+                ? items.filter(item => item.selected).forEach(item => onItemSelect(item))
+                : items.filter(item => !item.selected).forEach(item => onItemSelect(item))
+              )}
+            />
+          </th>
           {LIST_TABLE_HEADERS.map((key) => (
             <th key={key} style={{ position: "relative" }}>
               <div onClick={() => onSort(key)} style={{ cursor: "pointer" }}>
@@ -76,7 +96,12 @@ function ListTable({ items, onItemEdit, onItemDelete, disableButtons, onSort }) 
         {items.map((item, idx) => (
           <tr key={idx} className="align-middle">
             <td className=''>
-              <Form.Check />
+              <Form.Check
+                type="checkbox"
+                id={`item-${item.name}-${idx}`} 
+                checked={item.selected} 
+                onChange={() => onItemSelect(item)}
+              />
             </td>
             {LIST_TABLE_HEADERS.map((key) => (
               <td key={key}>{capitalize(item[key])}</td>

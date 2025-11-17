@@ -40,6 +40,7 @@ import {
   canManageUsers,
   canEdit,
  } from '../constants/constants';
+import ExportListDataModal from '../components/ExportListDataModal';
 
 // TODO: Move this to /constants/
 const emptyItem = { name: "", category: "", quantity: 1, id: null };
@@ -143,6 +144,9 @@ function ListView() {
   // Show manage users modal flag
   const [showManageUsersModal, setShowManageUsersModal] = useState(false);
 
+  // Show export list data modal
+  const [showExportListDataModal, setShowExportListDataModal] = useState(false);
+
   // restore user from session on refresh
   useEffect(() => {
     if (!user || !user.username) {   // only fetch if context is empty
@@ -181,7 +185,13 @@ function ListView() {
 
     fetchListData(listId)
       .then(data => {
-        setItemsInList(data.items || []);
+        //setItemsInList(data.items || []);
+        setItemsInList(() => (
+          data.items ? 
+          data.items.map((i) => (
+            { name: i.name, category: i.category, quantity: i.quantity, item_id: i.item_id, selected: false }
+          )) : []
+        ));
         setListName(data.listName || '');
         setUserRole(data.userRole || 'Viewer');
         
@@ -328,6 +338,16 @@ function ListView() {
     }
   };
 
+  const handleItemSelect = (item) => {
+    setItemsInList((prev) => 
+      prev.map((i) => 
+        i.item_id === item.item_id
+        ? {...i, selected: !i.selected}
+        : i
+      )
+    );
+  };
+
   // Handle sorting logic of grocery list items
   const [sortConfig, setSortConfig] = useState({ key: null, ascending: true });
 
@@ -361,6 +381,9 @@ function ListView() {
     }
   };
 
+  const handleShowExportListDataModal = () => setShowExportListDataModal(true);
+  const handleCloseExportListDataModal = () => setShowExportListDataModal(false);
+
   // Spinner while loading dashboard
   if (!user || !listModifiedDate) {
     return <CenterSpinner />;
@@ -381,7 +404,7 @@ function ListView() {
             theme === "light" ? "bg-dark text-light" : "bg-light text-primary"
           ].join(" ")}
         >
-          <Col>
+          <Col xs='auto'>
             <Row className="align-items-center">
               <Col xs="auto">
                 <h3 className="mb-0 fw-bold">{listName}</h3>
@@ -392,6 +415,15 @@ function ListView() {
                 </small>
               </Col>
             </Row>
+          </Col>
+          <Col xs='auto'>
+            <Button>Import Items</Button>
+          </Col>
+          <Col xs='auto'>
+            <Button>Create List from Selected</Button>
+          </Col>
+          <Col>
+            <Button variant='outline-primary' className='py=0' onClick={() => handleShowExportListDataModal()}>Export Selected</Button>
           </Col>
 
           <Col xs="auto">
@@ -409,7 +441,7 @@ function ListView() {
                     ))}
                   </>
                 ) : (
-                  <small className="text-muted me-3">Private List</small>
+                  <small className="me-3">Private List</small>
                 )}
               </div>
 
@@ -430,7 +462,7 @@ function ListView() {
 
         <Row className="flex-fill">
           {/** Current Grocery List Table **/}
-          <Col className="border mx-3 pt-3"  style={{ overflowY: 'scroll' }}>
+          <Col className="border mx-3 pt-3"  style={{ overflowY: 'hidden' }}>
             {itemsInList.length === 0 ? (
               <Container className="d-flex flex-column align-items-center justify-content-center p-5">
                 <p>No items.</p>
@@ -439,6 +471,7 @@ function ListView() {
               <div style={{ maxHeight: '80vh', overflowY: 'auto' }}>
                 <ListTable 
                   items={itemsInList}
+                  onItemSelect={handleItemSelect}
                   onItemEdit={handleShowEditItem}
                   onItemDelete={handleDeleteItem} 
                   disableButtons={!canEdit(userRole)} 
@@ -629,7 +662,14 @@ function ListView() {
           currentUserRole={userRole}
           otherUsers={listOtherUsers} 
           setOtherUsers={setListOtherUsers}
-        />  
+        /> 
+
+        {/** Export List Data Modal */} 
+        <ExportListDataModal 
+          show={showExportListDataModal}
+          handleClose={handleCloseExportListDataModal}
+          items={itemsInList}
+        />
       </Container>
     </div>
   );
