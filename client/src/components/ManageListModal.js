@@ -50,7 +50,7 @@ import UserSelector from "./UserSelector";
  *   }}
  * />
  */
-function ManageListModal({ show, handleClose, title, submitButtonText, onFormSubmit, list=null }) {
+function ManageListModal({ show, handleClose, title, submitButtonText, onFormSubmit, list=null, items=null }) {
   const [listName, setListName] = useState("");
   const [otherUsers, setOtherUsers] = useState([]);
   const [error, setError] = useState(null);
@@ -80,11 +80,12 @@ function ManageListModal({ show, handleClose, title, submitButtonText, onFormSub
 
     setError(null);
 
-    const listId = list?.id;
+    //const listId = list?.id;
 
-    console.log(`listId: ${listId}\tlistName: ${listName}\totherUsers: ${otherUsers}`);
+    //console.log(`listId: ${listId}\tlistName: ${listName}\totherUsers: ${otherUsers}`);
 
-    await onFormSubmit({ listId, listName, otherUsers });
+    //await onFormSubmit({ listId, listName, otherUsers });
+    await onFormSubmit({ listName, otherUsers, items });
 
     setListName("");
     setOtherUsers([]);

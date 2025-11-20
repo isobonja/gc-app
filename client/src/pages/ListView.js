@@ -24,7 +24,8 @@ import {
   editItem as apiEditItem,
   deleteItem as apiDeleteItem,
   getSession,
-  manageUsersOfList
+  manageUsersOfList,
+  createNewList
 } from '../api/requests';
 
 import { useItemSuggestions } from "../hooks/useItemSuggestions";
@@ -41,6 +42,7 @@ import {
   canEdit,
  } from '../constants/constants';
 import ExportListDataModal from '../components/ExportListDataModal';
+import ManageListModal from '../components/ManageListModal';
 
 // TODO: Move this to /constants/
 const emptyItem = { name: "", category: "", quantity: 1, id: null };
@@ -146,6 +148,8 @@ function ListView() {
 
   // Show export list data modal
   const [showExportListDataModal, setShowExportListDataModal] = useState(false);
+
+  const [showCreateListFromSelectedModal, setShowCreateListFromSelectedModal] = useState(false);
 
   // restore user from session on refresh
   useEffect(() => {
@@ -258,7 +262,46 @@ function ListView() {
     setEditItemShow(true);
   };
 
+  const handleEditItem = async ({ item, key, value }) => {
+    if (!user || !listId) return;
+
+    // Build old item from the current row
+    const oldItem = {
+      id: item.item_id,
+      name: item.name,
+      category: item.category,
+      quantity: item.quantity,
+    };
+
+    // Build new item with the edited field changed
+    const newItem = {
+      ...oldItem,
+      [key]: key === "quantity" ? Number(value) : value.trim()
+    };
+
+    // If no change, do nothing
+    if (newItem[key] === oldItem[key]) {
+      return;
+    }
+
+    try {
+      const data = await apiEditItem(listId, oldItem, newItem);
+
+      if (data.error) {
+        addToast(data.error, "error");
+        return;
+      }
+
+      addToast("Item updated!", "success");
+      setReload(prev => !prev);
+
+    } catch (err) {
+      addToast("Failed to update item.", "error");
+    }
+  };
+
   // Handle Edit Item form submission
+  // TODO: REMOVE THIS AND ANY OTHER PART OF THE EDIT ITEM MODAL -> USING DOUBLE-CLICK INPUT FIELD INSTEAD
   const handleEditItemSubmit = async (e) => {
     e.preventDefault();
 
@@ -384,6 +427,19 @@ function ListView() {
   const handleShowExportListDataModal = () => setShowExportListDataModal(true);
   const handleCloseExportListDataModal = () => setShowExportListDataModal(false);
 
+  const handleShowCreateListFromSelectedModal = () => setShowCreateListFromSelectedModal(true);
+  const handleCloseCreateListFromSelectedModal = () => setShowCreateListFromSelectedModal(false);
+
+  const handleCreateListFromSelectedFormSubmit = async ({ listName, otherUsers, items }) => {
+    try {
+      const data = await createNewList({ listName, otherUsers, items });
+
+      addToast(`List "${listName}" created!`, "success");
+    } catch (err) {
+      console.error("Error creating new list:", err);
+    }
+  };
+
   // Spinner while loading dashboard
   if (!user || !listModifiedDate) {
     return <CenterSpinner />;
@@ -417,10 +473,16 @@ function ListView() {
             </Row>
           </Col>
           <Col xs='auto'>
+            {/** Paste list of items and quantities -
+             * Would either need to have a standardized format to copy in
+             *   > Easiest option for app, might be more difficult on users
+             * OR implement some sort of 'smart' algorithm to figure out the items, 
+             * categories, and quantities the user was implying
+             */}
             <Button>Import Items</Button>
           </Col>
           <Col xs='auto'>
-            <Button>Create List from Selected</Button>
+            <Button variant='outline-primary' className='py=0' onClick={() => handleShowCreateListFromSelectedModal()}>Create List from Selected</Button>
           </Col>
           <Col>
             <Button variant='outline-primary' className='py=0' onClick={() => handleShowExportListDataModal()}>Export Selected</Button>
@@ -472,7 +534,7 @@ function ListView() {
                 <ListTable 
                   items={itemsInList}
                   onItemSelect={handleItemSelect}
-                  onItemEdit={handleShowEditItem}
+                  onItemEdit={handleEditItem}
                   onItemDelete={handleDeleteItem} 
                   disableButtons={!canEdit(userRole)} 
                   onSort={handleSortItems}
@@ -563,6 +625,7 @@ function ListView() {
                 </>
               )
             }
+            <i>Double-click on a value in the table to edit it!</i>
           </Col>
         </Row>
 
@@ -663,6 +726,16 @@ function ListView() {
           otherUsers={listOtherUsers} 
           setOtherUsers={setListOtherUsers}
         /> 
+
+        {/** Create List From Selected Modal */}
+        <ManageListModal
+          show={showCreateListFromSelectedModal}
+          handleClose={handleCloseCreateListFromSelectedModal} 
+          title={"Create New List from Selected Items"} 
+          submitButtonText={"Create List"} 
+          onFormSubmit={handleCreateListFromSelectedFormSubmit}
+          items={itemsInList.filter(i => i.selected)}
+        />
 
         {/** Export List Data Modal */} 
         <ExportListDataModal 

@@ -42,8 +42,8 @@ export const fetchCategories = async () => {
 };
 
 // Create new list
-export const createNewList = async ({ listName, otherUsers }) => {
-  const res = await api.post("/dashboard/create_list", { listName, otherUsers });
+export const createNewList = async ({ listName, otherUsers, items }) => {
+  const res = await api.post("/dashboard/create_list", { listName, otherUsers, items });
   return res.data;
 };
 

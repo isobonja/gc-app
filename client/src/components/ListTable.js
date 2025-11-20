@@ -62,19 +62,42 @@ function ListTable({ items, onItemSelect, onItemEdit, onItemDelete, disableButto
 
   const [allSelected, setAllSelected] = useState(false);
 
+  const [editingCell, setEditingCell] = useState(null);
+
   useEffect(() => {
     setAllSelected(items.every(item => item.selected));
   }, [items]);
 
+  const handleSaveEdit = () => {
+    if (!editingCell) return;
+
+    const { item, key, value } = editingCell;
+
+    onItemEdit({
+      item,     // full item object from the row
+      key,      // "name", "category", or "quantity"
+      value     // new value from the UI
+    });
+
+    // Exit edit mode
+    setEditingCell(null);
+  };
+
   return (
-    <Table bordered hover striped variant={theme === "light" ? "secondary" : "dark"} className="table-fixed">
+    <Table bordered hover striped variant={theme === "light" ? "secondary" : "dark"} style={{ tableLayout: "fixed" }}>
       <thead className={theme === "light" ? "table-primary" : "table-dark"} >
         <tr>
-          <th style={{ width: '4%' }}>
+          <th style={{ width: '4%' }} onClick={() => (
+              allSelected
+              ? items.filter(item => item.selected).forEach(item => onItemSelect(item))
+              : items.filter(item => !item.selected).forEach(item => onItemSelect(item))
+            )}
+          >
             <Form.Check 
               type="checkbox"
               id={`all-item-check`} 
               checked={allSelected} 
+              onClick={(e) => e.stopPropagation()}
               onChange={() => (
                 allSelected
                 ? items.filter(item => item.selected).forEach(item => onItemSelect(item))
@@ -89,34 +112,57 @@ function ListTable({ items, onItemSelect, onItemEdit, onItemDelete, disableButto
               </div>
             </th>
           ))}
-          <th style={{ width: '20%' }}>Actions</th>
+          <th style={{ width: '10%' }}>Actions</th>
         </tr>
       </thead>
       <tbody>
         {items.map((item, idx) => (
           <tr key={idx} className="align-middle">
-            <td className=''>
+            <td className='' onClick={() => onItemSelect(item)}>
               <Form.Check
                 type="checkbox"
                 id={`item-${item.name}-${idx}`} 
                 checked={item.selected} 
+                onClick={(e) => e.stopPropagation()}
                 onChange={() => onItemSelect(item)}
               />
             </td>
             {LIST_TABLE_HEADERS.map((key) => (
-              <td key={key}>{capitalize(item[key])}</td>
+              <td 
+                key={key}
+                onDoubleClick={() =>
+                  setEditingCell({
+                    item: item,
+                    key,
+                    value: item[key]
+                  })
+                }
+                style={{ verticalAlign: 'middle' }}
+              >
+                {editingCell &&
+                  editingCell.item.item_id === item.item_id &&
+                  editingCell.key === key ? (
+                    <Form.Control
+                      autoFocus
+                      type="text"
+                      value={editingCell.value}
+                      className='w-100'
+                      onChange={(e) =>
+                        setEditingCell({ ...editingCell, value: e.target.value })
+                      }
+                      onBlur={() => handleSaveEdit()}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleSaveEdit();
+                        if (e.key === "Escape") setEditingCell(null);
+                      }}
+                    />
+                  ) : (
+                    capitalize(item[key])
+                  )}
+              </td>
             ))}
             <td>
               <div className="d-flex flex-row gap-2">
-                <Button 
-                  variant="warning" 
-                  size="sm" 
-                  className="flex-fill"
-                  onClick={() => onItemEdit(item)}
-                  disabled={disableButtons}
-                >
-                  Edit
-                </Button>
                 <Button 
                   variant="danger" 
                   size="sm" 

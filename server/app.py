@@ -585,6 +585,7 @@ def create_list():
       Each object should include:
         - `user_id` (int): The invited user's ID.  
         - `role` (str): The role of the invited user in the list (e.g., `"editor"`, `"viewer"`).
+    - 'items' (list[dict], optiioonal): A list of items to add to the new list.
 
     Returns:
     - `201 Created` and JSON `{ success: True, listId: int }` on success.
@@ -603,6 +604,7 @@ def create_list():
     data = request.get_json()
     list_name = data.get('listName', 'New List')
     other_users = data.get('otherUsers', [])
+    items = data.get('items', [])
     
     user_id = session['user_id']
     
@@ -616,6 +618,10 @@ def create_list():
             
             # Add current user to grocery_list_users table
             cursor.execute('INSERT INTO grocery_list_users (list_id, user_id, role) VALUES (?, ?, ?)', (list_id, user_id, 'owner'))
+            
+            # Add items to list
+            for i in items:
+                cursor.execute('INSERT INTO grocery_list_items (list_id, item_id, quantity) VALUES (?, ?, ?)', (list_id, i.get('item_id'), i.get('quantity')))
             
             # Create invite notifications for added users
             user_ids = [user['user_id'] for user in other_users]
